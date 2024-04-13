@@ -854,26 +854,9 @@ class Timer:
         return (self.end - self.start) * 1000
 
 
-@app.get("/posts/")
-async def posts_fetch():
-    query = request_query_field()
-    fields = request_wanted_fields()
-    offset = int(request.args.get("offset", 0))
-    limit = int(request.args.get("limit", 15))
-
-    if query.startswith("pool:"):
-        # switch logic to fetching stuff from pool only in order lol
-        _, pool_id = query.split(":")
-        pool = await fetch_pool_entity(pool_id)
-        posts = pool["posts"][offset : offset + limit]
-        return {
-            "query": query,
-            "offset": offset,
-            "limit": limit,
-            "total": len(pool["posts"]),
-            "results": posts,
-        }
-
+async def compile_and_execute_query(
+    query: str, *, limit: Optional[int], offset: Optional[int]
+):
     with Timer() as querytimer:
         result = compile_query(query)
     log.info("compiled query %r in %s", result, querytimer)
@@ -900,11 +883,44 @@ async def posts_fetch():
     log.debug("tags: %r", result.tags)
     log.debug("mapped: %r", mapped_tag_args)
     with Timer() as main_exectimer:
+        if limit is not None and offset is not None:
+            limit_and_offset = f"limit {limit} offset {offset}"
+        else:
+            log.warning("running %r without limit and offset!", result.query)
+            limit_and_offset = ""
         tag_rows = await app.db.execute(
-            result.query + f" order by file_hash desc limit {limit} offset {offset}",
+            result.query + f" order by file_hash desc {limit_and_offset}",
             mapped_tag_args,
         )
+
     log.info("exec main query in %s", main_exectimer)
+    return result, mapped_tag_args, tag_rows
+
+
+@app.get("/posts/")
+async def posts_fetch():
+    query = request_query_field()
+    fields = request_wanted_fields()
+    offset = int(request.args.get("offset", 0))
+    limit = int(request.args.get("limit", 15))
+
+    if query.startswith("pool:"):
+        # switch logic to fetching stuff from pool only in order lol
+        _, pool_id = query.split(":")
+        pool = await fetch_pool_entity(pool_id)
+        posts = pool["posts"][offset : offset + limit]
+        return {
+            "query": query,
+            "offset": offset,
+            "limit": limit,
+            "total": len(pool["posts"]),
+            "results": posts,
+        }
+
+    result, mapped_tag_args, tag_rows = await compile_and_execute_query(
+        query, limit=limit, offset=offset
+    )
+
     with Timer() as main_counttimer:
         total_rows_count = await app.db.execute(
             f"select count(*) from ({result.query})",
@@ -1290,8 +1306,12 @@ async def single_post_fetch_around(file_id: str):
     fields = request_wanted_fields()
     query = request_query_field()
 
-    prev_file, next_file = None, None
-    pool_entry_ids = None
+    prev_file_id, next_file_id = None, None
+
+    query_posts = None
+    query_ids = None
+
+    # fast path for pools
 
     if query.startswith("pool:"):
         # operate in the context of a pool, as in, next will be next page in
@@ -1300,43 +1320,63 @@ async def single_post_fetch_around(file_id: str):
 
         _, pool_id = query.split(":")
         pool = await fetch_pool_entity(pool_id)
-        posts = pool["posts"]
-        pool_entry_ids = [f["id"] for f in posts]
+        query_posts = pool["posts"]
+        query_ids = [f["id"] for f in posts]
+
+    else:
+        # run query normally and find out what next/prev are from the returned rows
+        _, _, tag_rows = await compile_and_execute_query(query, limit=None, offset=None)
+        query_ids = [row[0] async for row in tag_rows]
+
+    if query_ids:
         try:
-            current_file_as_pool_index = pool_entry_ids.index(file_id)
+            current_file_id_index = query_ids.index(file_id)
         except ValueError:
-            current_file_as_pool_index = None
+            current_file_id_index = None
 
-        if current_file_as_pool_index is not None:
-            prev_file = list_get(posts, current_file_as_pool_index - 1)
-            next_file = list_get(posts, current_file_as_pool_index + 1)
-        else:
-            # do not exclude pool ids when outside of the pool
-            # in that way we dont skip it when scrolling through files normally
-            # when coming from a pool
-            pool_entry_ids = None
+        if current_file_id_index is not None:
+            prev_file_id = list_get(query_ids, current_file_id_index - 1)
+            next_file_id = list_get(query_ids, current_file_id_index + 1)
 
-    if prev_file is None:
-        # if pool doesnt provide it, query db
+    if prev_file_id is None:
+        # fallback to normal db order if no prev is fetched (e.g start of a pool)
         # also prevent from entering a black hole where once in a pool
         # you cant ever get out of it if files of it arent orderedd correctly
         # (the whole point of fixing this UX in the first place)
-        prev_id = await _fetch_around_file(
-            file_id, mode="previous", exclude=pool_entry_ids
+        prev_file_id = await _fetch_around_file(
+            file_id, mode="previous", exclude=query_ids
         )
-        if prev_id:
-            prev_file = await fetch_file_entity(prev_id, fields=fields)
 
     # same logic for next_file
-    if next_file is None:
-        next_id = await _fetch_around_file(file_id, mode="next", exclude=pool_entry_ids)
-        if next_id:
-            next_file = await fetch_file_entity(next_id, fields=fields)
+    if next_file_id is None:
+        next_file_id = await _fetch_around_file(
+            file_id, mode="next", exclude=pool_entry_ids
+        )
+
+    # fast path for pools (we already have the entire file entity in the returned pool)
+
+    prev_file = await maybe_fast_resolve_file(query_posts, prev_file_id, fields=fields)
+    next_file = await maybe_fast_resolve_file(query_posts, next_file_id, fields=fields)
 
     return {
         "prev": prev_file,
         "next": next_file,
     }
+
+
+async def maybe_fast_resolve_file(
+    posts_mapping: Optional[Dict[str, dict]],
+    file_id: Optional[str],
+    *,
+    fields: List[str],
+) -> Optional[dict]:
+    if not file_id:
+        return None
+
+    if posts_mapping and file_id in posts_mapping:
+        return posts_mapping[file_id]
+
+    return await fetch_file_entity(file_id, fields=fields)
 
 
 async def fetch_pool_entity(pool_hash: str, micro=False):
