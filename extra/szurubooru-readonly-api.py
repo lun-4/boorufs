@@ -861,7 +861,7 @@ async def posts_fetch():
     offset = int(request.args.get("offset", 0))
     limit = int(request.args.get("limit", 15))
 
-    if "pool:" in query:
+    if query.startswith("pool:"):
         # switch logic to fetching stuff from pool only in order lol
         _, pool_id = query.split(":")
         pool = await fetch_pool_entity(pool_id)
