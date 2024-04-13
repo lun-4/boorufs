@@ -1349,9 +1349,7 @@ async def single_post_fetch_around(file_id: str):
 
     # same logic for next_file
     if next_file_id is None:
-        next_file_id = await _fetch_around_file(
-            file_id, mode="next", exclude=pool_entry_ids
-        )
+        next_file_id = await _fetch_around_file(file_id, mode="next", exclude=query_ids)
 
     # fast path for pools (we already have the entire file entity in the returned pool)
 
