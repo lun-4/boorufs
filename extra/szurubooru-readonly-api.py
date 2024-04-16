@@ -942,12 +942,40 @@ async def posts_fetch():
         rows = await asyncio.gather(*rows_coroutines)
     log.info("took %s to fetch file metadata", gather_timer)
 
+    results = []
+
+    appending_pool_id = None
+    # prevent pool entries from appearing multiple times
+    for row in rows:
+        if "tags" not in fields:
+            results.append(row)
+            continue
+
+        row_pool_id = None
+        for tag in row["tags"]:
+            tag_name = tag["names"][0]
+            if tag_name.startswith("pool:"):
+                _pool, pool_id = tag_name.split(":")
+                row_pool_id = pool_id
+
+        # if we weren't in a pool and we're still not in a pool, just keep appending
+        if appending_pool_id is None and row_pool_id is None:
+            results.append(row)
+            continue
+
+        # if we are transitioning between pool ids (None->x or x->None), append the row
+        # and set appending_pool_id, the next row (assuming its a pool listing) will have
+        # the same pool id and won't trigger the transition (it's going to be x->x)
+        if appending_pool_id != row_pool_id:
+            results.append(row)
+            appending_pool_id = row_pool_id
+
     return {
         "query": query,
         "offset": offset,
         "limit": limit,
         "total": total_files,
-        "results": rows,
+        "results": results,
     }
 
 
