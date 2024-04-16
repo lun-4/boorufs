@@ -1349,7 +1349,7 @@ async def single_post_fetch_around(file_id: str):
         _, pool_id = query.split(":")
         pool = await fetch_pool_entity(pool_id)
         query_posts = pool["posts"]
-        query_ids = [f["id"] for f in posts]
+        query_ids = [f["id"] for f in query_posts]
 
     else:
         # run query normally and find out what next/prev are from the returned rows
