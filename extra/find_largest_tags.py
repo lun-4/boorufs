@@ -2,6 +2,7 @@
 
 
 import time
+import os
 import sys
 import sqlite3
 from pathlib import Path
@@ -59,16 +60,35 @@ def main():
     time_taken = round(end_ts - start_ts, 2)
     print("took", time_taken, "seconds to fetch all files and stats", file=sys.stderr)
 
-    def _sorter(core_hash: str) -> int:
+    sort_by_count_with_min_gb = os.environ.get("SORT_BY_COUNT_WITH_MIN_GB")
+
+    def _sort_by_total_size(core_hash: str) -> int:
         return sum(stat_map[p] for p in tagmap[core_hash])
 
-    sorted_tag_keys = sorted(tagmap.keys(), key=_sorter, reverse=True)
+    def _sort_by_count(core_hash: str) -> int:
+        return len(tagmap[core_hash])
+
+    keys = tagmap.keys()
+
+    if sort_by_count_with_min_gb:
+        _sorter = _sort_by_count
+        keys = filter(
+            lambda k: _sort_by_total_size(k)
+            >= int(sort_by_count_with_min_gb) * 1024 * 1024 * 1024,
+            keys,
+        )
+        reverse = False
+    else:
+        _sorter = _sort_by_total_size
+        reverse = True
+
+    sorted_tag_keys = sorted(keys, key=_sorter, reverse=reverse)
     for core_hash in sorted_tag_keys[:limit]:
         ccur = db.cursor()
         ccur.execute("select tag_text from tag_names where core_hash = ?", (core_hash,))
         row = ccur.fetchone()
         tag_text = row["tag_text"]
-        used_bytes = _sorter(core_hash)
+        used_bytes = _sort_by_total_size(core_hash)
         as_kb = used_bytes / 1024
         as_mb = as_kb / 1024
         as_gb = as_mb / 1024
