@@ -603,7 +603,7 @@ pub fn main() anyerror!void {
 
     var pidfd: ?std.posix.fd_t = null;
 
-    const pidfd_rc = std.posix.linux.pidfd_open(proc.id, 0);
+    const pidfd_rc = std.os.linux.pidfd_open(proc.id, 0);
     switch (std.posix.errno(pidfd_rc)) {
         .SUCCESS => pidfd = @as(std.posix.fd_t, @intCast(pidfd_rc)),
         .INVAL => unreachable,
@@ -681,7 +681,7 @@ pub fn main() anyerror!void {
                 logger.warn("got stderr: {s}", .{line});
             } else if (pollfd.fd == pidfd) {
                 var siginfo: std.posix.siginfo_t = undefined;
-                const waitid_rc = std.posix.linux.waitid(.PIDFD, pidfd.?, &siginfo, 0);
+                const waitid_rc = std.os.linux.waitid(.PIDFD, pidfd.?, &siginfo, 0);
                 switch (std.posix.errno(waitid_rc)) {
                     .SUCCESS => {},
                     .CHILD => unreachable, // unknown process. race condition
