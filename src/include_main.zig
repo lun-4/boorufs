@@ -1085,7 +1085,7 @@ pub fn main() anyerror!void {
     defer file_ids_for_tagtree.deinit();
 
     for (given_args.include_paths.items) |path_to_include| {
-        var dir: ?std.fs.Dir = std.fs.cwd().openDir(path_to_include, .{}) catch |err| blk: {
+        var dir: ?std.fs.Dir = std.fs.cwd().openDir(path_to_include, .{ .iterate = true }) catch |err| blk: {
             if (err == error.NotDir) {
                 break :blk null;
             }

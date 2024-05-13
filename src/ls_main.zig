@@ -134,7 +134,7 @@ pub fn main() anyerror!void {
             continue;
         }
 
-        const maybe_dir: ?std.fs.Dir = std.fs.cwd().openDir(query, .{}) catch |err| blk: {
+        const maybe_dir: ?std.fs.Dir = std.fs.cwd().openDir(query, .{ .iterate = true }) catch |err| blk: {
             switch (err) {
                 error.FileNotFound => {
                     logger.warn("path not found: {s}", .{query});
