@@ -19,8 +19,8 @@
             .hash = "122049c6cb05e549154a995b79322475052ad311eb85f26d51a35f5062e691b02384",
         },
         .tunez = .{
-            .url = "https://github.com/haze/tunez/archive/d042809b7c12e4263867192d269b2030d96e65d4.tar.gz",
-            .hash = "122034370de987c864fdf69e01697869d2916d739543a103f0ea2474e7a4405d405b",
+            .url = "https://github.com/haze/tunez/archive/ba51a2596ce469fa154453abe0cf108bbf397127.tar.gz",
+            .hash = "122068805012e59fdbe2f4a7bd3c413e2523c6a94f61e7ad60b7d6cb2dc8be15f642",
         },
         .@"zig-ulid" = .{
             .url = "https://github.com/lun-4/zig-ulid/archive/6b1146ac2aa07e28468600753749b2b35b789332.tar.gz",
