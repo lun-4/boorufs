@@ -370,7 +370,7 @@ const RegexTagInferrer = struct {
             const info = (gm_api.CloneImageInfo(0)).?;
             defer gm_api.DestroyImageInfo(info);
 
-            var buf: [std.os.PATH_MAX]u8 = undefined;
+            var buf: [std.posix.PATH_MAX]u8 = undefined;
             var fba = std.heap.FixedBufferAllocator{ .end_index = 0, .buffer = &buf };
             var alloc = fba.allocator();
             const path_cstr = alloc.dupeZ(u8, file.local_path) catch unreachable;

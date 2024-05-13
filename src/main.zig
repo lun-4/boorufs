@@ -435,7 +435,7 @@ pub fn loadDatabase(allocator: std.mem.Allocator, given_options: LoadDatabaseOpt
     // i give up. tried a lot of things to make sqlite create the db file
     // itself but it just hates me (SQLITE_CANTOPEN my beloathed).
     if (options.db_path == null) {
-        const home_path = options.home_path orelse std.os.getenv("HOME");
+        const home_path = options.home_path orelse std.posix.getenv("HOME");
         const resolved_path = try std.fs.path.resolve(
             allocator,
             &[_][]const u8{ home_path.?, "awtf.db" },
@@ -2138,7 +2138,7 @@ fn configCommand(args_it: *std.process.ArgIterator, ctx: *Context) !void {
     }
 }
 
-pub var test_db_path_buffer: [std.os.PATH_MAX]u8 = undefined;
+pub var test_db_path_buffer: [std.posix.PATH_MAX]u8 = undefined;
 
 pub var test_set_log = false;
 

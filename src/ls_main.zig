@@ -158,7 +158,7 @@ pub fn main() anyerror!void {
                 }
                 try stdout.print(" {s}", .{entry.name});
                 if (entry.kind == .file) {
-                    var realpath_buf: [std.os.PATH_MAX]u8 = undefined;
+                    var realpath_buf: [std.posix.PATH_MAX]u8 = undefined;
                     const full_path = try dir.dir.realpath(entry.name, &realpath_buf);
                     var maybe_inner_file = try ctx.fetchFileByPath(full_path);
                     if (maybe_inner_file) |*file| {
@@ -172,7 +172,7 @@ pub fn main() anyerror!void {
                 try stdout.print("\n", .{});
             }
         } else {
-            var realpath_buf: [std.os.PATH_MAX]u8 = undefined;
+            var realpath_buf: [std.posix.PATH_MAX]u8 = undefined;
             const full_path = try std.fs.cwd().realpath(query, &realpath_buf);
 
             const maybe_file = try ctx.fetchFileByPath(full_path);

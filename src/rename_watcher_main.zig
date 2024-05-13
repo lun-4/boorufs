@@ -24,7 +24,7 @@ const HELPTEXT =
     \\ 	-V				prints version and exits
 ;
 
-const PidTid = struct { pid: std.os.pid_t, tid: std.os.pid_t };
+const PidTid = struct { pid: std.posix.pid_t, tid: std.posix.pid_t };
 const StringAsList = std.ArrayList(u8);
 const ChunkedName = struct { state: enum { NeedMore, Complete }, data: StringAsList };
 const ChunkedNameMap = ExpiringHashMap(30 * std.time.ns_per_s, 1024, PidTid, ChunkedName);
@@ -57,8 +57,8 @@ const RenameContext = struct {
 
         const pid_string = line_it.next().?;
         const tid_string = line_it.next().?;
-        const pid = try std.fmt.parseInt(std.os.pid_t, pid_string, 10);
-        const tid = try std.fmt.parseInt(std.os.pid_t, tid_string, 10);
+        const pid = try std.fmt.parseInt(std.posix.pid_t, pid_string, 10);
+        const tid = try std.fmt.parseInt(std.posix.pid_t, tid_string, 10);
         const pid_tid_key = PidTid{ .pid = pid, .tid = tid };
 
         const is_oldname_message = std.mem.eql(u8, message_type, "oldname");
@@ -396,7 +396,7 @@ const RenameContext = struct {
             }
 
             if (is_directory_move) {
-                var oldpath_assumed_folder_buffer: [std.os.PATH_MAX]u8 = undefined;
+                var oldpath_assumed_folder_buffer: [std.posix.PATH_MAX]u8 = undefined;
                 const oldpath_assumed_folder = try std.fmt.bufPrint(
                     &oldpath_assumed_folder_buffer,
                     "{s}{s}",
@@ -404,7 +404,7 @@ const RenameContext = struct {
                 );
 
                 for (raw_files) |raw_file| {
-                    var replace_buffer: [std.os.PATH_MAX]u8 = undefined;
+                    var replace_buffer: [std.posix.PATH_MAX]u8 = undefined;
                     if (std.mem.startsWith(u8, raw_file.local_path, oldpath_assumed_folder)) {
                         // this is a file in a folder, update it accordingly
 
@@ -473,14 +473,14 @@ var maybe_self_pipe: ?Pipe = null;
 
 const SignalData = extern struct {
     signal: c_int,
-    info: std.os.siginfo_t,
+    info: std.posix.siginfo_t,
     uctx: ?*const anyopaque,
 };
 const SignalList = std.ArrayList(SignalData);
 
 fn signalHandler(
     signal: c_int,
-    info: *const std.os.siginfo_t,
+    info: *const std.posix.siginfo_t,
     uctx: ?*const anyopaque,
 ) callconv(.C) void {
     if (maybe_self_pipe) |self_pipe| {
@@ -508,7 +508,7 @@ pub fn main() anyerror!void {
         return error.ConfigFail;
     }
 
-    const self_pipe_fds = try std.os.pipe();
+    const self_pipe_fds = try std.posix.pipe();
     maybe_self_pipe = .{
         .reader = .{ .handle = self_pipe_fds[0] },
         .writer = .{ .handle = self_pipe_fds[1] },
@@ -518,17 +518,17 @@ pub fn main() anyerror!void {
         maybe_self_pipe.?.writer.close();
     }
 
-    var mask = std.os.empty_sigset;
+    var mask = std.posix.empty_sigset;
     // only linux and darwin implement sigaddset() on zig stdlib. huh.
-    std.os.linux.sigaddset(&mask, std.os.SIG.TERM);
-    std.os.linux.sigaddset(&mask, std.os.SIG.INT);
-    var sa = std.os.Sigaction{
+    std.os.linux.sigaddset(&mask, std.posix.SIG.TERM);
+    std.os.linux.sigaddset(&mask, std.posix.SIG.INT);
+    var sa = std.posix.Sigaction{
         .handler = .{ .sigaction = signalHandler },
         .mask = mask,
         .flags = 0,
     };
-    try std.os.sigaction(std.os.SIG.TERM, &sa, null);
-    try std.os.sigaction(std.os.SIG.INT, &sa, null);
+    try std.posix.sigaction(std.posix.SIG.TERM, &sa, null);
+    try std.posix.sigaction(std.posix.SIG.INT, &sa, null);
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -597,28 +597,28 @@ pub fn main() anyerror!void {
         _ = proc.kill() catch unreachable;
     }
 
-    const wait_pipe = try std.os.pipe();
-    defer std.os.close(wait_pipe[0]);
-    defer std.os.close(wait_pipe[1]);
+    const wait_pipe = try std.posix.pipe();
+    defer std.posix.close(wait_pipe[0]);
+    defer std.posix.close(wait_pipe[1]);
 
-    var pidfd: ?std.os.fd_t = null;
+    var pidfd: ?std.posix.fd_t = null;
 
-    const pidfd_rc = std.os.linux.pidfd_open(proc.id, 0);
-    switch (std.os.errno(pidfd_rc)) {
-        .SUCCESS => pidfd = @as(std.os.fd_t, @intCast(pidfd_rc)),
+    const pidfd_rc = std.posix.linux.pidfd_open(proc.id, 0);
+    switch (std.posix.errno(pidfd_rc)) {
+        .SUCCESS => pidfd = @as(std.posix.fd_t, @intCast(pidfd_rc)),
         .INVAL => unreachable,
         .NFILE, .MFILE => return error.TooManyFileDescriptors,
         .NODEV => return error.NoDevice,
         .NOMEM => return error.SystemResources,
         .SRCH => unreachable, // race condition
-        else => |err| return std.os.unexpectedErrno(err),
+        else => |err| return std.posix.unexpectedErrno(err),
     }
 
-    var sockets = [_]std.os.pollfd{
-        .{ .fd = proc.stdout.?.handle, .events = std.os.POLL.IN, .revents = 0 },
-        .{ .fd = proc.stderr.?.handle, .events = std.os.POLL.IN, .revents = 0 },
-        .{ .fd = pidfd orelse return error.InvalidPidFd, .events = std.os.POLL.IN, .revents = 0 },
-        .{ .fd = maybe_self_pipe.?.reader.handle, .events = std.os.POLL.IN, .revents = 0 },
+    var sockets = [_]std.posix.pollfd{
+        .{ .fd = proc.stdout.?.handle, .events = std.posix.POLL.IN, .revents = 0 },
+        .{ .fd = proc.stderr.?.handle, .events = std.posix.POLL.IN, .revents = 0 },
+        .{ .fd = pidfd orelse return error.InvalidPidFd, .events = std.posix.POLL.IN, .revents = 0 },
+        .{ .fd = maybe_self_pipe.?.reader.handle, .events = std.posix.POLL.IN, .revents = 0 },
     };
 
     var oldnames = ChunkedNameMap.init(allocator);
@@ -635,7 +635,7 @@ pub fn main() anyerror!void {
     defer rename_ctx.deinit();
 
     while (rename_ctx.keep_running) {
-        const available = try std.os.poll(&sockets, -1);
+        const available = try std.posix.poll(&sockets, -1);
         if (available == 0) {
             logger.info("timed out, retrying", .{});
             continue;
@@ -680,15 +680,15 @@ pub fn main() anyerror!void {
                 const line = line_buffer[0..buffer_offset];
                 logger.warn("got stderr: {s}", .{line});
             } else if (pollfd.fd == pidfd) {
-                var siginfo: std.os.siginfo_t = undefined;
-                const waitid_rc = std.os.linux.waitid(.PIDFD, pidfd.?, &siginfo, 0);
-                switch (std.os.errno(waitid_rc)) {
+                var siginfo: std.posix.siginfo_t = undefined;
+                const waitid_rc = std.posix.linux.waitid(.PIDFD, pidfd.?, &siginfo, 0);
+                switch (std.posix.errno(waitid_rc)) {
                     .SUCCESS => {},
                     .CHILD => unreachable, // unknown process. race condition
                     .INVAL => unreachable, // programming error
                     else => |err| {
                         logger.err("wtf {}", .{err});
-                        return std.os.unexpectedErrno(err);
+                        return std.posix.unexpectedErrno(err);
                     },
                 }
                 logger.err("bpftrace exited with {d}", .{siginfo.signo});

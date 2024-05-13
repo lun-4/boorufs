@@ -166,7 +166,7 @@ fn renameWithIndex(
     const maybe_to_path = try PathHandle.openPath(to_fspath, .{ .want_file = false }, .{});
 
     for (from_paths) |from_path_str| {
-        var buffer: [std.os.PATH_MAX]u8 = undefined;
+        var buffer: [std.posix.PATH_MAX]u8 = undefined;
         var from_path: PathHandle = try PathHandle.openPath(from_path_str, .{}, .{ .path_buffer = &buffer });
         defer from_path.close();
 
@@ -231,7 +231,7 @@ fn renameWithIndex(
 
                 logger.info("new_path: {s}", .{new_path_full});
                 // ensure that the new path is an actually valid fspath
-                var realpath_buffer: [std.os.PATH_MAX]u8 = undefined;
+                var realpath_buffer: [std.posix.PATH_MAX]u8 = undefined;
                 var new_path_handle = try PathHandle.openPath(new_path_full, .{ .want_file = true }, .{ .path_buffer = &realpath_buffer });
                 defer new_path_handle.close();
 

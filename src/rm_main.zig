@@ -180,7 +180,7 @@ fn runRemove(ctx: *Context, given_args: Args) !void {
     defer hashes_to_check.deinit();
 
     for (given_args.paths.items) |path| {
-        var full_path_buffer: [std.os.PATH_MAX]u8 = undefined;
+        var full_path_buffer: [std.posix.PATH_MAX]u8 = undefined;
         // if forcing a deletion, do not give a shit about filesystem
         const full_path = std.fs.cwd().realpath(path, &full_path_buffer) catch |err| blk: {
             if (given_args.force) {
@@ -213,7 +213,7 @@ fn runRemove(ctx: *Context, given_args: Args) !void {
             while (try walker.next()) |entry| {
                 if (entry.kind != .file) continue;
                 logger.debug("checking path {s}", .{entry.path});
-                var inner_realpath_buffer: [std.os.PATH_MAX]u8 = undefined;
+                var inner_realpath_buffer: [std.posix.PATH_MAX]u8 = undefined;
                 const inner_full_path = try entry.dir.realpath(entry.basename, &inner_realpath_buffer);
                 var maybe_inner_file = try ctx.fetchFileByPath(inner_full_path);
 
