@@ -134,7 +134,7 @@ pub fn main() anyerror!void {
             continue;
         }
 
-        const maybe_dir: ?std.fs.IterableDir = std.fs.cwd().openIterableDir(query, .{}) catch |err| blk: {
+        const maybe_dir: ?std.fs.Dir = std.fs.cwd().openDir(query, .{}) catch |err| blk: {
             switch (err) {
                 error.FileNotFound => {
                     logger.warn("path not found: {s}", .{query});
@@ -159,7 +159,7 @@ pub fn main() anyerror!void {
                 try stdout.print(" {s}", .{entry.name});
                 if (entry.kind == .file) {
                     var realpath_buf: [std.posix.PATH_MAX]u8 = undefined;
-                    const full_path = try dir.dir.realpath(entry.name, &realpath_buf);
+                    const full_path = try dir.realpath(entry.name, &realpath_buf);
                     var maybe_inner_file = try ctx.fetchFileByPath(full_path);
                     if (maybe_inner_file) |*file| {
                         const id_text = if (given_args.show_id) file.hash.id.str() else "";

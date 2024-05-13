@@ -728,7 +728,7 @@ pub fn temporaryName(allocator: std.mem.Allocator) ![]u8 {
     const template_start = "/temp/awtfdb-janitor_";
     const template = "/tmp/awtfdb-janitor_XXXXXXXXXXXXXXXXXXXXX";
     var nam = try allocator.alloc(u8, template.len);
-    std.mem.copy(u8, nam, template);
+    std.mem.copyForwards(u8, nam, template);
 
     const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
     var r = std.rand.DefaultPrng.init(seed);

@@ -197,7 +197,7 @@ fn runRemove(ctx: *Context, given_args: Args) !void {
             defer file.deinit();
             count += try processFile(given_args, file, &hashes_to_check);
         } else {
-            var dir = std.fs.cwd().openIterableDir(full_path, .{}) catch |err| {
+            var dir = std.fs.cwd().openDir(full_path, .{}) catch |err| {
                 logger.warn("ignoring file {s} ({s})", .{ full_path, @errorName(err) });
                 continue;
             };

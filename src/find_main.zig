@@ -218,7 +218,7 @@ pub fn main() anyerror!void {
         const PREFIX = "/tmp/awtf/afind-";
         const template = "/tmp/awtf/afind-XXXXXXXXXX";
         var tmp_path: [template.len]u8 = undefined;
-        std.mem.copy(u8, &tmp_path, PREFIX);
+        std.mem.copyForwards(u8, &tmp_path, PREFIX);
         const fill_here = tmp_path[PREFIX.len..];
 
         const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
@@ -272,8 +272,8 @@ pub fn main() anyerror!void {
 
         // configure signal handler that's going to push data to the selfpipe
         var mask = std.posix.empty_sigset;
-        std.posix.linux.sigaddset(&mask, std.posix.SIG.TERM);
-        std.posix.linux.sigaddset(&mask, std.posix.SIG.INT);
+        std.os.linux.sigaddset(&mask, std.posix.SIG.TERM);
+        std.os.linux.sigaddset(&mask, std.posix.SIG.INT);
         var sa = std.posix.Sigaction{
             .handler = .{ .sigaction = signal_handler },
             .mask = mask,

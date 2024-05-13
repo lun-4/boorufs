@@ -376,7 +376,7 @@ const RegexTagInferrer = struct {
             const path_cstr = alloc.dupeZ(u8, file.local_path) catch unreachable;
 
             gm_api.InitializeMagick(null);
-            std.mem.copy(u8, &info.*.filename, path_cstr);
+            std.mem.copyForwards(u8, &info.*.filename, path_cstr);
             var exception: magick_c.ExceptionInfo = undefined;
             gm_api.GetExceptionInfo(&exception);
             const image = gm_api.ReadImage(info, &exception) orelse {

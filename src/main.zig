@@ -822,7 +822,7 @@ pub const Context = struct {
 
         pub fn toRealHash(self: @This()) Hash {
             var hash_value: [32]u8 = undefined;
-            std.mem.copy(u8, &hash_value, self.hash_data.data);
+            std.mem.copyForwards(u8, &hash_value, self.hash_data.data);
             return Hash{ .id = ID.new(self.id), .hash_data = hash_value };
         }
     };
@@ -1738,7 +1738,7 @@ pub const Context = struct {
             if (maybe_parents) |parents| {
                 // realloc
                 var new_parents = try self.allocator.alloc(TagTreeEntry, parents.len + 1);
-                std.mem.copy(TagTreeEntry, new_parents, parents);
+                std.mem.copyForwards(TagTreeEntry, new_parents, parents);
                 new_parents[new_parents.len - 1] = .{
                     .tag_id = ID.new(tree_row.parent_tag),
                     .row_id = tree_row.row_id,
