@@ -3,16 +3,16 @@
     .version = "0.1.0",
     .dependencies = .{
         .sqlite = .{
-            .url = "https://github.com/vrischmann/zig-sqlite/archive/dc339b7cf3bca82a12c2169231dd247587766781.tar.gz",
-            .hash = "1220e0961c135c5aa3af77a043dbc5890a18235a157238df0e2882fe84a8c8439c7a",
+            .url = "https://github.com/lun-4/zig-sqlite/archive/41b391cf1846b8db8c572da306902f1f59eae4eb.tar.gz",
+            .hash = "1220e0300613f2b949a8328c5b1d9ba84777f2258c1535039afcb536e9e1228d2881",
         },
         .@"libpcre.zig" = .{
-            .url = "https://github.com/lun-4/libpcre.zig/archive/7022cf131e78acd4359b859ce8a09dd4068d279a.tar.gz",
-            .hash = "122084d7b506549d27b80d56cbb84a599b1b0debf1e44e3f6d2ac0a286ac3f27b80b",
+            .url = "https://github.com/lun-4/libpcre.zig/archive/66aee4ad3640ecd60e146567a53c3c4526d56f20.tar.gz",
+            .hash = "1220a8ebdf898b785bbff1f6d9affce29da1c9cbc833c64bf3b187eeaa642129d242",
         },
         .@"libmagic.zig" = .{
-            .url = "https://github.com/lun-4/libmagic.zig/archive/4b1a02163b9eba60dd586714004605ee7891a48f.tar.gz",
-            .hash = "1220e89777e1165ea90c24b0703ad93c3dc8ff0e9c2905cb64a1803c210ccfd89ea4",
+            .url = "https://github.com/lun-4/libmagic.zig/archive/7a1c53698fd00029eb7c681e253429b07274def6.tar.gz",
+            .hash = "1220b4c46ad2866308b2dc8807b025cc86121f58d27a06582417b3e3479812375834",
         },
         .expiring_hash_map = .{
             .url = "https://github.com/lun-4/expiring-hash-map.zig/archive/6768a94377b1b502b8da62de47f5616feee4451b.tar.gz",
@@ -23,8 +23,8 @@
             .hash = "1220ea3790cd513b9e177b12daa6eabce8305b25fc89c2e0fac896b3a65a27f3326e",
         },
         .@"zig-ulid" = .{
-            .url = "https://github.com/lun-4/zig-ulid/archive/c4b9b8c0bc48ebeb5a5e4078f7e073ec4f1de2ee.tar.gz",
-            .hash = "122029e948f2b728d6d0dd4a8447a5130804cd80908ab1d8be26ce2ec72d8f7b71a4",
+            .url = "https://github.com/lun-4/zig-ulid/archive/6b1146ac2aa07e28468600753749b2b35b789332.tar.gz",
+            .hash = "1220f47d7fe37a226bf89f1df08d2fd07d09b5eb0ae81694d8c3fd1d0d827e0c7697",
         },
     },
     .minimum_zig_version = "0.12.0",
