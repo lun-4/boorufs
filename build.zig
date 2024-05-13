@@ -72,6 +72,8 @@ pub fn build(b: *std.Build) !void {
         exe_tests.linkLibrary(lib);
     }
 
+    exe_tests.linkSystemLibrary("pcre");
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
@@ -95,6 +97,7 @@ pub fn build(b: *std.Build) !void {
         for (static_deps) |lib| {
             single_exe.linkLibrary(lib);
         }
+        single_exe.linkSystemLibrary("pcre");
 
         addGraphicsMagick(single_exe);
         b.installArtifact(single_exe);
