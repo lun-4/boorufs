@@ -16,8 +16,8 @@ const EXECUTABLES = .{
 
 fn addGraphicsMagick(thing: anytype) void {
     thing.linkLibC();
-    thing.addIncludePath(.{ .path = "/usr/include" });
-    thing.addIncludePath(.{ .path = "/usr/include/GraphicsMagick" });
+    thing.addIncludePath(.{ .cwd_relative = "/usr/include" });
+    thing.addIncludePath(.{ .cwd_relative = "/usr/include/GraphicsMagick" });
 }
 
 pub fn build(b: *std.Build) !void {
@@ -54,7 +54,7 @@ pub fn build(b: *std.Build) !void {
 
     const exe_tests = b.addTest(
         .{
-            .root_source_file = .{ .path = "src/main.zig" },
+            .root_source_file = b.path("src/main.zig"),
             .optimize = optimize,
             .target = target,
         },
