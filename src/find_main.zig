@@ -185,7 +185,7 @@ pub fn main() anyerror!void {
 
     var raw_stderr = std.io.getStdErr();
     var buffered_stderr = BufferedFileWriter{ .unbuffered_writer = raw_stderr.writer() };
-    var stderr = buffered_stderr.writer();
+    const stderr = buffered_stderr.writer();
 
     var returned_files = std.ArrayList(Context.File).init(allocator);
     defer {
@@ -215,11 +215,11 @@ pub fn main() anyerror!void {
     logger.info("found {d} files", .{returned_files.items.len});
 
     if (given_args.link) {
-        var PREFIX = "/tmp/awtf/afind-";
-        var template = "/tmp/awtf/afind-XXXXXXXXXX";
+        const PREFIX = "/tmp/awtf/afind-";
+        const template = "/tmp/awtf/afind-XXXXXXXXXX";
         var tmp_path: [template.len]u8 = undefined;
         std.mem.copy(u8, &tmp_path, PREFIX);
-        var fill_here = tmp_path[PREFIX.len..];
+        const fill_here = tmp_path[PREFIX.len..];
 
         const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
         var r = std.rand.DefaultPrng.init(seed);
@@ -395,11 +395,11 @@ pub const SqlGiver = struct {
     pub const CaptureType = enum(usize) { Or = 0, Not, And, Tag, RawTag };
 
     pub fn init() !Self {
-        var or_operator = try libpcre.Regex.compile("( +)?\\|( +)?", .{});
-        var not_operator = try libpcre.Regex.compile("( +)?-( +)?", .{});
-        var and_operator = try libpcre.Regex.compile(" +", .{});
-        var tag_regex = try libpcre.Regex.compile("[a-zA-Z-_0-9:;&\\*\\(\\)]+", .{});
-        var raw_tag_regex = try libpcre.Regex.compile("\".*?\"", .{});
+        const or_operator = try libpcre.Regex.compile("( +)?\\|( +)?", .{});
+        const not_operator = try libpcre.Regex.compile("( +)?-( +)?", .{});
+        const and_operator = try libpcre.Regex.compile(" +", .{});
+        const tag_regex = try libpcre.Regex.compile("[a-zA-Z-_0-9:;&\\*\\(\\)]+", .{});
+        const raw_tag_regex = try libpcre.Regex.compile("\".*?\"", .{});
 
         return Self{ .operators = [_]libpcre.Regex{
             or_operator,

@@ -86,7 +86,7 @@ pub fn main() anyerror!void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
 
     var args_it = std.process.args();
     _ = args_it.skip();
@@ -105,7 +105,7 @@ pub fn main() anyerror!void {
     while (args_it.next()) |arg| {
         switch (state) {
             .FetchTag => {
-                var tag = (try ctx.fetchNamedTag(arg, "en")) orelse {
+                const tag = (try ctx.fetchNamedTag(arg, "en")) orelse {
                     logger.err("tag '{s}' not found", .{arg});
                     return error.UnknownNamedTag;
                 };

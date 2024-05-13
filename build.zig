@@ -41,8 +41,8 @@ pub fn build(b: *std.Build) !void {
 
     const mod_deps = &[_]Mod{
         .{ .name = "sqlite", .mod = sqlite_pkg.module("sqlite") },
-        .{ .name = "pcre", .mod = pcre_pkg.module("libpcre") },
-        .{ .name = "magic", .mod = magic_pkg.module("libmagic") },
+        .{ .name = "libpcre", .mod = pcre_pkg.module("libpcre") },
+        .{ .name = "libmagic.zig", .mod = magic_pkg.module("libmagic") },
         .{ .name = "expiring_hash_map", .mod = expiring_hash_map_pkg.module("expiring-hash-map") },
         .{ .name = "tunez", .mod = tunez_pkg.module("tunez") },
         .{ .name = "ulid", .mod = ulid_pkg.module("zig-ulid") },

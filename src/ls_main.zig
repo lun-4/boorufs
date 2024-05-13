@@ -46,7 +46,7 @@ pub fn main() anyerror!void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
 
     var args_it = std.process.args();
     _ = args_it.skip();
@@ -108,7 +108,7 @@ pub fn main() anyerror!void {
             const file_hash_as_str = it.next() orelse return error.InvalidFileIdSyntax;
             const file_hash = ID.fromString(file_hash_as_str);
 
-            var maybe_file = try ctx.fetchFile(file_hash);
+            const maybe_file = try ctx.fetchFile(file_hash);
             if (maybe_file) |file| {
                 defer file.deinit();
                 const id_text = if (given_args.show_id) file.hash.id.str() else "";
@@ -134,7 +134,7 @@ pub fn main() anyerror!void {
             continue;
         }
 
-        var maybe_dir: ?std.fs.IterableDir = std.fs.cwd().openIterableDir(query, .{}) catch |err| blk: {
+        const maybe_dir: ?std.fs.IterableDir = std.fs.cwd().openIterableDir(query, .{}) catch |err| blk: {
             switch (err) {
                 error.FileNotFound => {
                     logger.warn("path not found: {s}", .{query});

@@ -40,7 +40,7 @@ pub fn main() anyerror!void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
 
     var args_it = std.process.args();
     _ = args_it.skip();
@@ -262,7 +262,7 @@ test "renaming with index support" {
     var paths = [_][]const u8{real};
 
     var buf2: [8192]u8 = undefined;
-    var to_path = try std.fmt.bufPrint(&buf2, "{s}_coolversion", .{real});
+    const to_path = try std.fmt.bufPrint(&buf2, "{s}_coolversion", .{real});
 
     try renameWithIndex(ctx.allocator, &ctx, &paths, to_path);
     var indexed_file2 = (try ctx.fetchFile(indexed_file1.hash.id)).?;

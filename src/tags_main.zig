@@ -118,7 +118,7 @@ const CreateAction = struct {
     }
 
     pub fn run(self: *Self) !void {
-        var unbuffered_stdout = std.io.getStdOut().writer();
+        const unbuffered_stdout = std.io.getStdOut().writer();
         var buffered_stream = std.io.bufferedWriter(unbuffered_stdout);
         var stdout = buffered_stream.writer();
 
@@ -146,7 +146,7 @@ const CreateAction = struct {
             errdefer savepoint.rollback();
             defer savepoint.commit();
 
-            var tag_to_be_aliased_to = try consumeCoreHash(self.ctx, &raw_core_hash_buffer, tag_core_hex_string);
+            const tag_to_be_aliased_to = try consumeCoreHash(self.ctx, &raw_core_hash_buffer, tag_core_hex_string);
             var tag_to_be_aliased_from = if (try self.ctx.fetchNamedTag(self.config.tag.?, "en")) |tag_text|
                 tag_text
             else
@@ -161,14 +161,14 @@ const CreateAction = struct {
             }
 
             // find all tags with that single tag (tag_to_be_aliased_from)
-            const SqlGiver = @import("./find_main.zig").SqlGiver;
+            const SqlGiver = @import("find_main.zig").SqlGiver;
 
             var giver = try SqlGiver.init();
             defer giver.deinit();
 
             // always wrap given tag text in quotemarks so that its
             // properly parsed by SqlGiver
-            var find_query_text = try std.fmt.allocPrint(self.ctx.allocator, "\"{s}\"", .{self.config.tag.?});
+            const find_query_text = try std.fmt.allocPrint(self.ctx.allocator, "\"{s}\"", .{self.config.tag.?});
             defer self.ctx.allocator.free(find_query_text);
 
             var wrapped_sql_result = try giver.giveMeSql(self.ctx.allocator, find_query_text);
@@ -192,7 +192,7 @@ const CreateAction = struct {
             // execute query and bind to tag_to_be_aliased_from
             var stmt = try self.ctx.db.prepareDynamic(sql_result.query);
             defer stmt.deinit();
-            var args = [1]sqlite.Text{tag_to_be_aliased_from.core.id.sql()};
+            const args = [1]sqlite.Text{tag_to_be_aliased_from.core.id.sql()};
             var it = try stmt.iterator(ID.SQL, args);
 
             // add tag_to_be_aliased_to to all returned files
@@ -249,7 +249,7 @@ test "create action (aliasing)" {
     defer ctx.deinit();
 
     var tag1 = try ctx.createNamedTag("test tag1", "en", null, .{});
-    var tag2_before_alias = try ctx.createNamedTag("test tag2", "en", null, .{});
+    const tag2_before_alias = try ctx.createNamedTag("test tag2", "en", null, .{});
 
     try std.testing.expect(!std.meta.eql(tag2_before_alias.core.id, tag1.core.id));
 
@@ -270,8 +270,8 @@ test "create action (aliasing)" {
     // tag1 must still exist
     // tag2 must still exist, but with same core now
 
-    var tag1_after_alias = (try ctx.fetchNamedTag("test tag1", "en")).?;
-    var tag2_after_alias = (try ctx.fetchNamedTag("test tag2", "en")).?;
+    const tag1_after_alias = (try ctx.fetchNamedTag("test tag1", "en")).?;
+    const tag2_after_alias = (try ctx.fetchNamedTag("test tag2", "en")).?;
     try std.testing.expectEqual(tag1.core.id, tag1_after_alias.core.id);
     try std.testing.expectEqual(tag1.core.id, tag2_after_alias.core.id);
 }
@@ -281,7 +281,7 @@ fn consumeCoreHash(ctx: *Context, raw_core_hash_buffer: *[32]u8, tag_core_hex_st
         logger.err("hashes myst be 64 bytes long, got {d}", .{tag_core_hex_string.len});
         return error.InvalidHashLength;
     }
-    var raw_core_hash = try std.fmt.hexToBytes(raw_core_hash_buffer, tag_core_hex_string);
+    const raw_core_hash = try std.fmt.hexToBytes(raw_core_hash_buffer, tag_core_hex_string);
 
     const hash_blob = sqlite.Blob{ .data = raw_core_hash };
     const hash_id = (try ctx.db.one(
@@ -394,7 +394,7 @@ const RemoveAction = struct {
             }
             try stdout.print("\n", .{});
         } else if (self.config.tag) |tag_text| {
-            var maybe_tag = try self.ctx.fetchNamedTag(tag_text, "en");
+            const maybe_tag = try self.ctx.fetchNamedTag(tag_text, "en");
             if (maybe_tag) |tag| {
                 try stdout.print(" {s}", .{tag.kind.Named.text});
                 core_hash_id = tag.core.id;
@@ -497,9 +497,9 @@ test "remove action" {
     defer ctx.deinit();
 
     var tag = try ctx.createNamedTag("test tag", "en", null, .{});
-    var tag2 = try ctx.createNamedTag("test tag2", "en", tag.core, .{});
+    const tag2 = try ctx.createNamedTag("test tag2", "en", tag.core, .{});
     _ = tag2;
-    var tag3 = try ctx.createNamedTag("test tag3", "en", null, .{});
+    const tag3 = try ctx.createNamedTag("test tag3", "en", null, .{});
 
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
@@ -528,15 +528,15 @@ test "remove action" {
     try action.run();
 
     // tag must be gone
-    var maybe_tag1 = try ctx.fetchNamedTag("test tag1", "en");
+    const maybe_tag1 = try ctx.fetchNamedTag("test tag1", "en");
     try std.testing.expectEqual(@as(?Context.Tag, null), maybe_tag1);
-    var maybe_tag2 = try ctx.fetchNamedTag("test tag2", "en");
+    const maybe_tag2 = try ctx.fetchNamedTag("test tag2", "en");
     try std.testing.expectEqual(@as(?Context.Tag, null), maybe_tag2);
-    var maybe_tag3 = try ctx.fetchNamedTag("test tag3", "en");
+    const maybe_tag3 = try ctx.fetchNamedTag("test tag3", "en");
     try std.testing.expect(maybe_tag3 != null);
 
     // file should only have tag3
-    var file_tags = try indexed_file.fetchTags(std.testing.allocator);
+    const file_tags = try indexed_file.fetchTags(std.testing.allocator);
     defer std.testing.allocator.free(file_tags);
 
     try std.testing.expectEqual(@as(usize, 1), file_tags.len);
@@ -596,7 +596,7 @@ const SearchAction = struct {
 
         defer stmt.deinit();
 
-        var tag_names = try stmt.all(
+        const tag_names = try stmt.all(
             struct {
                 core_hash: ID.SQL,
             },
@@ -729,7 +729,7 @@ const ListParent = struct {
     }
 
     pub fn run(self: *Self) !void {
-        var raw_stdout = std.io.getStdOut().writer();
+        const raw_stdout = std.io.getStdOut().writer();
 
         var stmt = try self.ctx.db.prepare(
             \\ select rowid,
@@ -740,7 +740,7 @@ const ListParent = struct {
             \\ from tag_implications
         );
         defer stmt.deinit();
-        var entries = try stmt.all(struct {
+        const entries = try stmt.all(struct {
             rowid: i64,
             parent_tag_id: ID.SQL,
             parent_tag: []const u8,
@@ -936,7 +936,7 @@ test "remove parent (no entry deletion)" {
     // attempt to run command with delete_file_entries = false
 
     var args = Args{ .ask_confirmation = false };
-    var config = RemoveParent.Config{
+    const config = RemoveParent.Config{
         .given_args = &args,
         // remove relationship child_tag -> parent_tag
         .rowid = ids.tag_tree_entry_id,
@@ -948,7 +948,7 @@ test "remove parent (no entry deletion)" {
 
     try action.run();
 
-    var file_tags = try indexed_file.fetchTags(std.testing.allocator);
+    const file_tags = try indexed_file.fetchTags(std.testing.allocator);
     defer std.testing.allocator.free(file_tags);
     try std.testing.expectEqual(@as(usize, 4), file_tags.len);
 
@@ -978,15 +978,15 @@ fn parentTestSetup(
     ctx: *Context,
     indexed_file: *Context.File,
 ) !ParentTestSetupResult {
-    var child_tag = try ctx.createNamedTag("child_test_tag", "en", null, .{});
+    const child_tag = try ctx.createNamedTag("child_test_tag", "en", null, .{});
     try indexed_file.addTag(child_tag.core, .{});
 
     // only add this through inferrence
     // child_tag -> parent_tag, parent_tag2
     // parent_tag2 -> parent_tag3
-    var parent_tag = try ctx.createNamedTag("parent_test_tag", "en", null, .{});
-    var parent_tag2 = try ctx.createNamedTag("parent_test_tag2", "en", null, .{});
-    var parent_tag3 = try ctx.createNamedTag("parent_test_tag3", "en", null, .{});
+    const parent_tag = try ctx.createNamedTag("parent_test_tag", "en", null, .{});
+    const parent_tag2 = try ctx.createNamedTag("parent_test_tag2", "en", null, .{});
+    const parent_tag3 = try ctx.createNamedTag("parent_test_tag3", "en", null, .{});
     const tag_tree_entry_id = try ctx.createTagParent(child_tag, parent_tag);
     const tag_tree_entry2_id = try ctx.createTagParent(child_tag, parent_tag2);
     const tag_tree_entry3_id = try ctx.createTagParent(parent_tag2, parent_tag3);
@@ -1024,7 +1024,7 @@ test "remove parent (with entry deletion)" {
     const ids = try parentTestSetup(&ctx, &indexed_file);
 
     var args = Args{ .ask_confirmation = false };
-    var config = RemoveParent.Config{
+    const config = RemoveParent.Config{
         .given_args = &args,
         // remove relationship child_tag -> parent_tag
         .rowid = ids.tag_tree_entry_id,
@@ -1036,7 +1036,7 @@ test "remove parent (with entry deletion)" {
 
     try action.run();
 
-    var file_tags = try indexed_file.fetchTags(std.testing.allocator);
+    const file_tags = try indexed_file.fetchTags(std.testing.allocator);
     defer std.testing.allocator.free(file_tags);
     try std.testing.expectEqual(@as(usize, 3), file_tags.len);
 
@@ -1054,7 +1054,7 @@ const CreatePool = struct {
 
     pub fn processArgs(args_it: *std.process.ArgIterator, given_args: *Args) !ActionConfig {
         _ = given_args;
-        var config = Config{
+        const config = Config{
             .title = args_it.next() orelse return error.ExpectedPoolTitle,
         };
         return ActionConfig{ .CreatePool = config };
@@ -1118,7 +1118,7 @@ const FetchPool = struct {
         var pool = (try self.ctx.fetchPool(self.config.pool_id)) orelse return error.PoolNotFound;
         defer pool.deinit();
 
-        var file_hashes = try pool.fetchFiles(self.ctx.allocator);
+        const file_hashes = try pool.fetchFiles(self.ctx.allocator);
         defer self.ctx.allocator.free(file_hashes);
 
         try stdout.print(
@@ -1144,7 +1144,7 @@ const SearchPool = struct {
 
     pub fn processArgs(args_it: *std.process.ArgIterator, given_args: *Args) !ActionConfig {
         _ = given_args;
-        var config = Config{
+        const config = Config{
             .search_term = args_it.next() orelse return error.ExpectedSearchTerm,
         };
         return ActionConfig{ .SearchPool = config };
@@ -1173,7 +1173,7 @@ const SearchPool = struct {
         );
         defer stmt.deinit();
 
-        var pool_hashes = try stmt.all(
+        const pool_hashes = try stmt.all(
             ID.SQL,
             self.ctx.allocator,
             .{},
@@ -1246,7 +1246,7 @@ const CreateSource = struct {
 
     pub fn processArgs(args_it: *std.process.ArgIterator, given_args: *Args) !ActionConfig {
         _ = given_args;
-        var config = Config{
+        const config = Config{
             .title = args_it.next() orelse return error.ExpectedSourceTitle,
         };
         return ActionConfig{ .CreateSource = config };
@@ -1268,7 +1268,7 @@ const CreateSource = struct {
     pub fn run(self: *Self) !void {
         var stdout = std.io.getStdOut().writer();
 
-        var source = try self.ctx.createTagSource(self.config.title, .{});
+        const source = try self.ctx.createTagSource(self.config.title, .{});
         std.debug.print("source created with id ", .{});
         try stdout.print("{d}\n", .{source.id});
     }
@@ -1332,14 +1332,14 @@ const ListSource = struct {
     }
 
     pub fn run(self: *Self) !void {
-        var raw_stdout = std.io.getStdOut().writer();
+        const raw_stdout = std.io.getStdOut().writer();
 
         var stmt = try self.ctx.db.prepare(
             \\ select type, id, name
             \\ from tag_sources
         );
         defer stmt.deinit();
-        var entries = try stmt.all(struct { type: i64, id: i64, name: []const u8 }, self.ctx.allocator, .{}, .{});
+        const entries = try stmt.all(struct { type: i64, id: i64, name: []const u8 }, self.ctx.allocator, .{}, .{});
         defer {
             for (entries) |entry| {
                 self.ctx.allocator.free(entry.name);
@@ -1400,7 +1400,7 @@ pub fn main() anyerror!void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
 
     var args_it = std.process.args();
     _ = args_it.skip();

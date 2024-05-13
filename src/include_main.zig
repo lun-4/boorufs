@@ -339,7 +339,7 @@ const RegexTagInferrer = struct {
     pub fn init(config: TagInferrerConfig, allocator: std.mem.Allocator) !RunContext {
         const regex_config = config.config.regex;
         const regex_cstr = try allocator.dupeZ(u8, regex_config.text.?);
-        var gm_api = if (regex_config.use_exif) getGraphicsMagickApi().? else null;
+        const gm_api = if (regex_config.use_exif) getGraphicsMagickApi().? else null;
         return RunContext{
             .allocator = allocator,
             .config = regex_config,
@@ -367,7 +367,7 @@ const RegexTagInferrer = struct {
         );
 
         if (self.gm_api) |gm_api| {
-            var info = (gm_api.CloneImageInfo(0)).?;
+            const info = (gm_api.CloneImageInfo(0)).?;
             defer gm_api.DestroyImageInfo(info);
 
             var buf: [std.os.PATH_MAX]u8 = undefined;
@@ -379,7 +379,7 @@ const RegexTagInferrer = struct {
             std.mem.copy(u8, &info.*.filename, path_cstr);
             var exception: magick_c.ExceptionInfo = undefined;
             gm_api.GetExceptionInfo(&exception);
-            var image = gm_api.ReadImage(info, &exception) orelse {
+            const image = gm_api.ReadImage(info, &exception) orelse {
                 gm_api.CatchException(&exception);
                 return error.GmApiException;
             };
@@ -401,7 +401,7 @@ const RegexTagInferrer = struct {
         var offset: usize = 0;
         while (true) {
             logger.debug("regex input input: {s}", .{input_text});
-            var maybe_captures = try self.regex.captures(self.allocator, input_text[offset..], .{});
+            const maybe_captures = try self.regex.captures(self.allocator, input_text[offset..], .{});
 
             if (maybe_captures) |captures| {
                 defer self.allocator.free(captures);
@@ -739,7 +739,7 @@ const MimeTagInferrer = struct {
     }
 
     pub fn init(config: TagInferrerConfig, allocator: std.mem.Allocator) !RunContext {
-        var self = RunContext{
+        const self = RunContext{
             .allocator = allocator,
             .cookie = try MimeCookie.init(allocator, .{}),
             .config = config.config.mime,
@@ -783,7 +783,7 @@ const MimeTagInferrer = struct {
         const path_cstr = try self.allocator.dupeZ(u8, file.local_path);
         defer self.allocator.free(path_cstr);
 
-        var mimetype = try self.cookie.inferFile(path_cstr);
+        const mimetype = try self.cookie.inferFile(path_cstr);
         logger.debug("mime: {s}", .{mimetype});
 
         if (self.config.tag_scope_mimetype != null) {
@@ -888,11 +888,11 @@ fn addTagList(
 ) !void {
     for (tags_to_add.items) |named_tag_text| {
         logger.info("adding tag {s}", .{named_tag_text});
-        var maybe_tag = try ctx.fetchNamedTag(named_tag_text, "en");
+        const maybe_tag = try ctx.fetchNamedTag(named_tag_text, "en");
         if (maybe_tag) |tag| {
             try file.addTag(tag.core, .{});
         } else {
-            var tag = try ctx.createNamedTag(named_tag_text, "en", null, .{});
+            const tag = try ctx.createNamedTag(named_tag_text, "en", null, .{});
             try file.addTag(tag.core, .{});
         }
     }
@@ -958,7 +958,7 @@ pub fn main() anyerror!void {
             },
             .InferMoreTags => {
                 const tag_inferrer = std.meta.stringToEnum(TagInferrer, arg) orelse return error.InvalidTagInferrer;
-                var inferrer_config = switch (tag_inferrer) {
+                const inferrer_config = switch (tag_inferrer) {
                     .regex => try RegexTagInferrer.consumeArguments(&args_it),
                     .audio => try AudioMetadataTagInferrer.consumeArguments(&args_it),
                     .mime => try MimeTagInferrer.consumeArguments(&args_it),
@@ -1045,7 +1045,7 @@ pub fn main() anyerror!void {
                 logger.err("strict mode is on. '{s}' is an unknown tag", .{named_tag_text});
             } else {
                 // TODO support ISO 639-1 for language codes
-                var new_tag = try ctx.createNamedTag(named_tag_text, "en", null, .{});
+                const new_tag = try ctx.createNamedTag(named_tag_text, "en", null, .{});
                 logger.debug(
                     "(created!) tag '{s}' with core {s}",
                     .{ named_tag_text, new_tag.core },
@@ -1121,7 +1121,7 @@ pub fn main() anyerror!void {
 
             for (given_args.wanted_inferrers.items, 0..) |inferrer_config, index| {
                 logger.info("found config for  {}", .{inferrer_config});
-                var inferrer_ctx = &contexts.items[index];
+                const inferrer_ctx = &contexts.items[index];
                 switch (inferrer_ctx.*) {
                     .regex => |*regex_ctx| try RegexTagInferrer.run(regex_ctx, &file, &tags_to_add),
                     .audio => |*audio_ctx| try AudioMetadataTagInferrer.run(audio_ctx, &file, &tags_to_add),
@@ -1188,7 +1188,7 @@ pub fn main() anyerror!void {
 
                             for (given_args.wanted_inferrers.items, 0..) |inferrer_config, index| {
                                 logger.info("found config for  {}", .{inferrer_config});
-                                var inferrer_ctx = &contexts.items[index];
+                                const inferrer_ctx = &contexts.items[index];
                                 switch (inferrer_ctx.*) {
                                     .regex => |*regex_ctx| try RegexTagInferrer.run(regex_ctx, &file, &tags_to_add),
                                     .audio => |*audio_ctx| try AudioMetadataTagInferrer.run(audio_ctx, &file, &tags_to_add),

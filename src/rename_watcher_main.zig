@@ -65,10 +65,10 @@ const RenameContext = struct {
         const is_newname_message = std.mem.eql(u8, message_type, "newname");
 
         if (std.mem.eql(u8, message_type, "execve")) {
-            var cwd_proc_path = try std.fmt.allocPrint(self.allocator, "/proc/{d}/cwd", .{pid});
+            const cwd_proc_path = try std.fmt.allocPrint(self.allocator, "/proc/{d}/cwd", .{pid});
             defer self.allocator.free(cwd_proc_path);
 
-            var cwd_path = std.fs.realpathAlloc(self.allocator, cwd_proc_path) catch |err| switch (err) {
+            const cwd_path = std.fs.realpathAlloc(self.allocator, cwd_proc_path) catch |err| switch (err) {
                 error.AccessDenied, error.FileNotFound => {
                     logger.debug("can't access cwd for {d}, ignoring rename", .{pid});
                     return;
@@ -76,7 +76,7 @@ const RenameContext = struct {
                 else => return err,
             };
 
-            var to_remove = try self.cwds.put(pid_tid_key, cwd_path);
+            const to_remove = try self.cwds.put(pid_tid_key, cwd_path);
             defer self.allocator.free(to_remove);
             for (to_remove) |removed_value| self.allocator.free(removed_value);
         } else if (std.mem.eql(u8, message_type, "exit_execve")) {
@@ -103,7 +103,7 @@ const RenameContext = struct {
             var map_to_put_in: *ChunkedNameMap =
                 if (is_oldname_message) self.oldnames else self.newnames;
 
-            var maybe_chunk = map_to_put_in.getPtr(pid_tid_key);
+            const maybe_chunk = map_to_put_in.getPtr(pid_tid_key);
 
             if (maybe_chunk) |maybe_expired_chunk| {
                 switch (maybe_expired_chunk) {
@@ -138,7 +138,7 @@ const RenameContext = struct {
                     chunk.state = .Complete;
                 }
 
-                var removed_values = try map_to_put_in.put(
+                const removed_values = try map_to_put_in.put(
                     pid_tid_key,
                     chunk,
                 );
@@ -210,7 +210,7 @@ const RenameContext = struct {
             // if we don't have it already, try to fetch it from procfs
             // as this might be a process we didn't know about before
 
-            var cwd_proc_path = try std.fmt.allocPrint(self.allocator, "/proc/{d}/cwd", .{pid});
+            const cwd_proc_path = try std.fmt.allocPrint(self.allocator, "/proc/{d}/cwd", .{pid});
             defer self.allocator.free(cwd_proc_path);
 
             cwd_path = std.fs.realpathAlloc(self.allocator, cwd_proc_path) catch |err| switch (err) {
@@ -228,7 +228,7 @@ const RenameContext = struct {
             self.allocator.free(cwd_path.?);
 
         // applying cwd_path if the path is already absolute is incorrect behavior.
-        var oldpath = if (!is_oldname_absolute)
+        const oldpath = if (!is_oldname_absolute)
             try std.fs.path.resolve(self.allocator, &[_][]const u8{
                 cwd_path.?,
                 relative_old_name,
@@ -287,7 +287,7 @@ const RenameContext = struct {
 
         // find out if the target newpath is a folder or not by searching
         // if there are multiple entries with it already
-        var newpath_count = (try self.ctx.db.one(
+        const newpath_count = (try self.ctx.db.one(
             usize,
             \\ select count(*)
             \\ from files
@@ -532,7 +532,7 @@ pub fn main() anyerror!void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
 
     var args_it = std.process.args();
     _ = args_it.skip();
@@ -597,7 +597,7 @@ pub fn main() anyerror!void {
         _ = proc.kill() catch unreachable;
     }
 
-    var wait_pipe = try std.os.pipe();
+    const wait_pipe = try std.os.pipe();
     defer std.os.close(wait_pipe[0]);
     defer std.os.close(wait_pipe[1]);
 
@@ -733,15 +733,15 @@ test "rename syscalls trigger db rename" {
     // also should help if we think about going beyond bpftrace
     //  (dtrace for macos and bsds maybe?)
 
-    var full_tmp_dir_path = try tmp.dir.realpathAlloc(allocator, ".");
+    const full_tmp_dir_path = try tmp.dir.realpathAlloc(allocator, ".");
     defer allocator.free(full_tmp_dir_path);
 
-    var oldname = try std.fs.path.resolve(allocator, &[_][]const u8{
+    const oldname = try std.fs.path.resolve(allocator, &[_][]const u8{
         full_tmp_dir_path,
         "test_file",
     });
     defer allocator.free(oldname);
-    var newname = try std.fs.path.resolve(allocator, &[_][]const u8{
+    const newname = try std.fs.path.resolve(allocator, &[_][]const u8{
         full_tmp_dir_path,
         "test_file2",
     });
@@ -819,20 +819,20 @@ test "rename syscalls trigger db rename (target being a folder)" {
     // also should help if we think about going beyond bpftrace
     //  (dtrace for macos and bsds maybe?)
 
-    var full_tmp_dir_path = try tmp.dir.realpathAlloc(allocator, ".");
+    const full_tmp_dir_path = try tmp.dir.realpathAlloc(allocator, ".");
     defer allocator.free(full_tmp_dir_path);
 
-    var full_target_tmp_dir_path = try target_tmp.dir.realpathAlloc(allocator, ".");
+    const full_target_tmp_dir_path = try target_tmp.dir.realpathAlloc(allocator, ".");
     defer allocator.free(full_target_tmp_dir_path);
 
-    var oldname = try std.fs.path.resolve(allocator, &[_][]const u8{
+    const oldname = try std.fs.path.resolve(allocator, &[_][]const u8{
         full_tmp_dir_path,
         "test_file",
     });
     defer allocator.free(oldname);
-    var newname = full_target_tmp_dir_path;
+    const newname = full_target_tmp_dir_path;
 
-    var actual_newname = try std.fs.path.resolve(allocator, &[_][]const u8{
+    const actual_newname = try std.fs.path.resolve(allocator, &[_][]const u8{
         full_target_tmp_dir_path,
         "test_file",
     });

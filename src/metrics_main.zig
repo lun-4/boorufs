@@ -65,7 +65,7 @@ pub fn main() anyerror!u8 {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
 
     var args_it = std.process.args();
     _ = args_it.skip();
@@ -148,7 +148,7 @@ fn runMetricsTagUsage(ctx: *Context, metrics_timestamp: Timestamp) !void {
             .end_index = 0,
         };
         defer fba.reset();
-        var tags_alloc = fba.allocator();
+        const tags_alloc = fba.allocator();
 
         const file_ref = Context.File{
             .ctx = ctx,
@@ -162,8 +162,8 @@ fn runMetricsTagUsage(ctx: *Context, metrics_timestamp: Timestamp) !void {
         const tags = try file_ref.fetchTags(tags_alloc);
 
         for (tags) |file_tag| {
-            var owned_data = try string_allocator.dupe(u8, &file_tag.core.id.data);
-            var entry = try core_counts.getOrPut(owned_data);
+            const owned_data = try string_allocator.dupe(u8, &file_tag.core.id.data);
+            const entry = try core_counts.getOrPut(owned_data);
 
             if (entry.found_existing) {
                 entry.value_ptr.* += 1;
@@ -243,12 +243,12 @@ test "metrics (tags)" {
     var ctx = try manage_main.makeTestContext();
     defer ctx.deinit();
 
-    var tag1 = try ctx.createNamedTag("test_tag1", "en", null, .{});
-    var tag2 = try ctx.createNamedTag("test_tag2", "en", null, .{});
+    const tag1 = try ctx.createNamedTag("test_tag1", "en", null, .{});
+    const tag2 = try ctx.createNamedTag("test_tag2", "en", null, .{});
     _ = tag2;
-    var tag3 = try ctx.createNamedTag("test_tag3", "en", null, .{});
+    const tag3 = try ctx.createNamedTag("test_tag3", "en", null, .{});
     _ = tag3;
-    var tag_named1 = try ctx.createNamedTag("test_tag1_samecore", "en", tag1.core, .{});
+    const tag_named1 = try ctx.createNamedTag("test_tag1_samecore", "en", tag1.core, .{});
     _ = tag_named1;
 
     // run metrics code
@@ -268,10 +268,10 @@ test "metrics (tags and files)" {
 
     // setup tags
 
-    var tag1 = try ctx.createNamedTag("test_tag1", "en", null, .{});
-    var tag2 = try ctx.createNamedTag("test_tag2", "en", null, .{});
-    var tag3 = try ctx.createNamedTag("test_tag3", "en", null, .{});
-    var tag_named1 = try ctx.createNamedTag("test_tag1_samecore", "en", tag1.core, .{});
+    const tag1 = try ctx.createNamedTag("test_tag1", "en", null, .{});
+    const tag2 = try ctx.createNamedTag("test_tag2", "en", null, .{});
+    const tag3 = try ctx.createNamedTag("test_tag3", "en", null, .{});
+    const tag_named1 = try ctx.createNamedTag("test_tag1_samecore", "en", tag1.core, .{});
 
     // setup files
 
