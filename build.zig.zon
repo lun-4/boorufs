@@ -7,8 +7,8 @@
             .hash = "1220e0300613f2b949a8328c5b1d9ba84777f2258c1535039afcb536e9e1228d2881",
         },
         .@"libpcre.zig" = .{
-            .url = "https://github.com/lun-4/libpcre.zig/archive/66aee4ad3640ecd60e146567a53c3c4526d56f20.tar.gz",
-            .hash = "1220a8ebdf898b785bbff1f6d9affce29da1c9cbc833c64bf3b187eeaa642129d242",
+            .url = "https://github.com/lun-4/libpcre.zig/archive/fb5dd02337da7c82d5427c76c6154e1dabe4b7b6.tar.gz",
+            .hash = "1220befbf027b9abd02d9e95ba4272ba7de98b1737be4f8a7fae99fa21ba9cb764d1",
         },
         .@"libmagic.zig" = .{
             .url = "https://github.com/lun-4/libmagic.zig/archive/7a1c53698fd00029eb7c681e253429b07274def6.tar.gz",
