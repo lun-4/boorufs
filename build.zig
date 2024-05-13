@@ -78,36 +78,44 @@ pub fn build(b: *std.Build) !void {
 
     //if (optimize == .Debug or optimize == .ReleaseSafe) {
 
-    //    if (true) {
-    //        // faster build by making a single executable
-    //        const single_exe = b.addExecutable(
-    //            .{
-    //                .name = "wrapper-awtfdb",
-    //                .root_source_file = b.path("src/wrapmain.zig"),
-    //                .optimize = optimize,
-    //                .target = target,
-    //            },
-    //        );
-    //        addAllTo(mod_deps, static_deps, single_exe);
-    //
-    //        addGraphicsMagick(single_exe);
-    //        b.installArtifact(single_exe);
-    //
-    //        const hardlink_install = try b.allocator.create(CustomHardLinkStep);
-    //
-    //        const hardlink_step = std.build.Step.init(.{
-    //            .id = .custom,
-    //            .name = "link the utils",
-    //            .owner = b,
-    //            .makeFn = CustomHardLinkStep.make,
-    //        });
-    //        hardlink_install.* = .{
-    //            .builder = b,
-    //            .step = hardlink_step,
-    //            .exe = single_exe,
-    //        };
-    //        hardlink_install.step.dependOn(&single_exe.step);
-    //        b.getInstallStep().dependOn(&hardlink_install.step);
+    if (true) {
+        // faster build by making a single executable
+        const single_exe = b.addExecutable(
+            .{
+                .name = "wrapper-awtfdb",
+                .root_source_file = b.path("src/wrapmain.zig"),
+                .optimize = optimize,
+                .target = target,
+            },
+        );
+
+        for (mod_deps) |dep| {
+            single_exe.root_module.addImport(dep.name, dep.mod);
+        }
+
+        for (static_deps) |lib| {
+            single_exe.linkLibrary(lib);
+        }
+
+        addGraphicsMagick(single_exe);
+        b.installArtifact(single_exe);
+
+        const hardlink_install = try b.allocator.create(CustomHardLinkStep);
+
+        const hardlink_step = std.Build.Step.init(.{
+            .id = .custom,
+            .name = "link the utils",
+            .owner = b,
+            .makeFn = CustomHardLinkStep.make,
+        });
+        hardlink_install.* = .{
+            .builder = b,
+            .step = hardlink_step,
+            .exe = single_exe,
+        };
+        hardlink_install.step.dependOn(&single_exe.step);
+        b.getInstallStep().dependOn(&hardlink_install.step);
+    }
     //    } else {
     //        // release modes build all exes separately
     //        inline for (EXECUTABLES) |exec_decl| {
@@ -131,13 +139,13 @@ pub fn build(b: *std.Build) !void {
 }
 
 const CustomHardLinkStep = struct {
-    builder: *std.build.Builder,
-    step: std.build.Step,
-    exe: *std.build.LibExeObjStep,
+    builder: *std.Build,
+    step: std.Build.Step,
+    exe: *std.Build.Step.Compile,
 
     const Self = @This();
 
-    fn make(step: *std.build.Step, node: *std.Progress.Node) !void {
+    fn make(step: *std.Build.Step, node: *std.Progress.Node) !void {
         _ = node;
         const self: *Self = @fieldParentPtr("step", step);
         const builder = self.builder;

@@ -1093,7 +1093,7 @@ const FetchPool = struct {
         _ = given_args;
 
         const pool_id_str = args_it.next() orelse return error.ExpectedPoolTitle;
-        var config = Config{
+        const config = Config{
             .pool_id = ID.fromString(pool_id_str),
         };
         return ActionConfig{ .FetchPool = config };
