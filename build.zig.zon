@@ -11,8 +11,8 @@
             .hash = "122084d7b506549d27b80d56cbb84a599b1b0debf1e44e3f6d2ac0a286ac3f27b80b",
         },
         .@"libmagic.zig" = .{
-            .url = "https://github.com/lun-4/libmagic.zig/archive/d9e90da26d503ec01952cee10517fd6b6cf58172.tar.gz",
-            .hash = "1220d59384ae518279267349b14ccb475027bdda6594f4141107962648738e77b595",
+            .url = "https://github.com/lun-4/libmagic.zig/archive/4b1a02163b9eba60dd586714004605ee7891a48f.tar.gz",
+            .hash = "1220e89777e1165ea90c24b0703ad93c3dc8ff0e9c2905cb64a1803c210ccfd89ea4",
         },
         .expiring_hash_map = .{
             .url = "https://github.com/lun-4/expiring-hash-map.zig/archive/6768a94377b1b502b8da62de47f5616feee4451b.tar.gz",

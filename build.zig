@@ -50,7 +50,6 @@ pub fn build(b: *std.Build) !void {
 
     const static_deps = &[_]*std.Build.Step.Compile{
         sqlite_pkg.artifact("sqlite"),
-        //magic_pkg.artifact("libmagic"),
     };
 
     const exe_tests = b.addTest(

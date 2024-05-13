@@ -3,7 +3,7 @@ const sqlite = @import("sqlite");
 const manage_main = @import("main.zig");
 const Context = manage_main.Context;
 const ID = manage_main.ID;
-const ExpiringHashMap = @import("expiring-hash-map").ExpiringHashMap;
+const ExpiringHashMap = @import("expiring_hash_map").ExpiringHashMap;
 
 const logger = std.log.scoped(.awtfdb_watcher);
 
