@@ -226,10 +226,12 @@ const GraphicsMagickApi = struct {
     CatchException: *@TypeOf(magick_c.CatchException),
 };
 
-var cached_graphics_magick: ?union(enum) {
+const CachedMagick = union(enum) {
     not_found: void,
     found: GraphicsMagickApi,
-} = null;
+};
+
+var cached_graphics_magick: ?CachedMagick = null;
 
 /// Dynamically get an object that represents the GraphicsMagick library
 /// in the system.
@@ -242,7 +244,8 @@ fn getGraphicsMagickApi() ?GraphicsMagickApi {
     }
 
     var gm_clib = std.DynLib.open("/usr/lib/libGraphicsMagickWand.so") catch {
-        cached_graphics_magick = .{ .not_found = {} };
+        // TODO anon initialization crashes compiler. https://github.com/ziglang/zig/issues/19966
+        cached_graphics_magick = CachedMagick{ .not_found = {} };
         return null;
     };
     var buf: [256]u8 = undefined;
@@ -256,7 +259,8 @@ fn getGraphicsMagickApi() ?GraphicsMagickApi {
 
         @field(api, field_decl.name) = gm_clib.lookup(field_decl.type, name_cstr).?;
     }
-    cached_graphics_magick = .{ .found = api };
+    // TODO anon initialization crashes compiler. https://github.com/ziglang/zig/issues/19966
+    cached_graphics_magick = CachedMagick{ .found = api };
     return api;
 }
 
