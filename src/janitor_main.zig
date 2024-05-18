@@ -623,7 +623,7 @@ pub fn main() anyerror!u8 {
         return error.FailedIntegrityCheck;
     }
     logger.info("running PRAGMA foreign_key_check...", .{});
-    var maybe_row = try ctx.db.oneAlloc(struct {
+    const maybe_row = try ctx.db.oneAlloc(struct {
         source_table: []const u8,
         invalid_rowid: ?i64,
         referenced_table: []const u8,
@@ -684,10 +684,10 @@ test "janitor functionality" {
     var indexed_file = try ctx.createFileFromDir(tmp.dir, "test_file", .{});
     defer indexed_file.deinit();
 
-    var tag = try ctx.createNamedTag("test_tag", "en", null, .{});
+    const tag = try ctx.createNamedTag("test_tag", "en", null, .{});
     try indexed_file.addTag(tag.core, .{});
 
-    var given_args = Args{ .only = undefined };
+    const given_args = Args{ .only = undefined };
 
     var report = Report.init(std.testing.allocator);
     defer report.deinit();
@@ -715,7 +715,7 @@ test "tag name regex retroactive checker" {
     try ctx.updateLibraryConfig(.{ .tag_name_regex = TEST_TAG_REGEX });
 
     var counters: ErrorCounters = .{};
-    var given_args = Args{ .only = undefined };
+    const given_args = Args{ .only = undefined };
 
     try janitorCheckTagNameRegex(&ctx, &counters, given_args);
 
@@ -728,7 +728,7 @@ pub fn temporaryName(allocator: std.mem.Allocator) ![]u8 {
     const template_start = "/temp/awtfdb-janitor_";
     const template = "/tmp/awtfdb-janitor_XXXXXXXXXXXXXXXXXXXXX";
     var nam = try allocator.alloc(u8, template.len);
-    std.mem.copy(u8, nam, template);
+    std.mem.copyForwards(u8, nam, template);
 
     const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
     var r = std.rand.DefaultPrng.init(seed);
@@ -739,8 +739,8 @@ pub fn temporaryName(allocator: std.mem.Allocator) ![]u8 {
     while (i < 100) : (i += 1) {
         // generate a random uppercase letter, that is, 65 + random number.
         for (fill, 0..) |_, f_idx| {
-            var idx = @as(u8, @intCast(r.random().uintLessThan(u5, 24)));
-            var letter = @as(u8, 65) + idx;
+            const idx = @as(u8, @intCast(r.random().uintLessThan(u5, 24)));
+            const letter = @as(u8, 65) + idx;
             fill[f_idx] = letter;
         }
 
@@ -763,7 +763,7 @@ pub fn temporaryName(allocator: std.mem.Allocator) ![]u8 {
 fn writeReport(report: Report) !void {
     var allocator = report.allocator;
 
-    var temp_path = try temporaryName(allocator);
+    const temp_path = try temporaryName(allocator);
     defer allocator.free(temp_path);
 
     var temp_file = try std.fs.createFileAbsolute(temp_path, .{});

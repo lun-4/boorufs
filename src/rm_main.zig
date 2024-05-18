@@ -86,7 +86,7 @@ pub fn main() anyerror!void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
 
     var args_it = std.process.args();
     _ = args_it.skip();
@@ -105,7 +105,7 @@ pub fn main() anyerror!void {
     while (args_it.next()) |arg| {
         switch (state) {
             .FetchTag => {
-                var tag = (try ctx.fetchNamedTag(arg, "en")) orelse {
+                const tag = (try ctx.fetchNamedTag(arg, "en")) orelse {
                     logger.err("tag '{s}' not found", .{arg});
                     return error.UnknownNamedTag;
                 };
@@ -180,7 +180,7 @@ fn runRemove(ctx: *Context, given_args: Args) !void {
     defer hashes_to_check.deinit();
 
     for (given_args.paths.items) |path| {
-        var full_path_buffer: [std.os.PATH_MAX]u8 = undefined;
+        var full_path_buffer: [std.posix.PATH_MAX]u8 = undefined;
         // if forcing a deletion, do not give a shit about filesystem
         const full_path = std.fs.cwd().realpath(path, &full_path_buffer) catch |err| blk: {
             if (given_args.force) {
@@ -197,7 +197,7 @@ fn runRemove(ctx: *Context, given_args: Args) !void {
             defer file.deinit();
             count += try processFile(given_args, file, &hashes_to_check);
         } else {
-            var dir = std.fs.cwd().openIterableDir(full_path, .{}) catch |err| {
+            var dir = std.fs.cwd().openDir(full_path, .{}) catch |err| {
                 logger.warn("ignoring file {s} ({s})", .{ full_path, @errorName(err) });
                 continue;
             };
@@ -213,7 +213,7 @@ fn runRemove(ctx: *Context, given_args: Args) !void {
             while (try walker.next()) |entry| {
                 if (entry.kind != .file) continue;
                 logger.debug("checking path {s}", .{entry.path});
-                var inner_realpath_buffer: [std.os.PATH_MAX]u8 = undefined;
+                var inner_realpath_buffer: [std.posix.PATH_MAX]u8 = undefined;
                 const inner_full_path = try entry.dir.realpath(entry.basename, &inner_realpath_buffer);
                 var maybe_inner_file = try ctx.fetchFileByPath(inner_full_path);
 

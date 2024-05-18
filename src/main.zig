@@ -435,7 +435,7 @@ pub fn loadDatabase(allocator: std.mem.Allocator, given_options: LoadDatabaseOpt
     // i give up. tried a lot of things to make sqlite create the db file
     // itself but it just hates me (SQLITE_CANTOPEN my beloathed).
     if (options.db_path == null) {
-        const home_path = options.home_path orelse std.os.getenv("HOME");
+        const home_path = options.home_path orelse std.posix.getenv("HOME");
         const resolved_path = try std.fs.path.resolve(
             allocator,
             &[_][]const u8{ home_path.?, "awtf.db" },
@@ -672,7 +672,7 @@ pub const Context = struct {
         try self.db.exec("PRAGMA query_only = ON;", .{}, .{});
 
         // open a new one in memory
-        var new_db = try sqlite.Db.init(.{
+        const new_db = try sqlite.Db.init(.{
             .mode = sqlite.Db.Mode{ .Memory = {} },
             .open_flags = .{
                 .write = true,
@@ -790,7 +790,7 @@ pub const Context = struct {
         var stmt = try self.db.prepare("select tag_text, tag_language from tag_names where core_hash = ?");
         defer stmt.deinit();
 
-        var named_tag_values = try stmt.all(
+        const named_tag_values = try stmt.all(
             NamedTagValue,
             allocator,
             .{},
@@ -822,13 +822,13 @@ pub const Context = struct {
 
         pub fn toRealHash(self: @This()) Hash {
             var hash_value: [32]u8 = undefined;
-            std.mem.copy(u8, &hash_value, self.hash_data.data);
+            std.mem.copyForwards(u8, &hash_value, self.hash_data.data);
             return Hash{ .id = ID.new(self.id), .hash_data = hash_value };
         }
     };
 
     pub fn fetchNamedTag(self: *Self, text: []const u8, language: []const u8) !?Tag {
-        var maybe_core_hash = try self.db.oneAlloc(
+        const maybe_core_hash = try self.db.oneAlloc(
             HashSQL,
             self.allocator,
             \\ select hashes.id, hashes.hash_data
@@ -858,7 +858,7 @@ pub const Context = struct {
         const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
         var r = std.rand.DefaultPrng.init(seed);
         for (core_output, 0..) |_, index| {
-            var random_byte = r.random().uintAtMost(u8, 255);
+            const random_byte = r.random().uintAtMost(u8, 255);
             core_output[index] = random_byte;
         }
     }
@@ -1293,7 +1293,7 @@ pub const Context = struct {
             writer: anytype,
             options: PrintTagOptions,
         ) !void {
-            var file_tags = try self.fetchTags(allocator);
+            const file_tags = try self.fetchTags(allocator);
             defer allocator.free(file_tags);
 
             for (file_tags) |file_tag| {
@@ -1371,7 +1371,7 @@ pub const Context = struct {
     /// Caller owns returned memory.
     pub fn createFileFromPath(self: *Self, local_path: []const u8, options: CreateFileOptions) !File {
         const absolute_local_path = try std.fs.realpathAlloc(self.allocator, local_path);
-        var possible_file_entry = try self.fetchFileByPath(absolute_local_path);
+        const possible_file_entry = try self.fetchFileByPath(absolute_local_path);
         if (possible_file_entry) |file_entry| {
             // fetchFileByPath dupes the string so we need to free it here
             defer self.allocator.free(absolute_local_path);
@@ -1381,7 +1381,7 @@ pub const Context = struct {
         var file = try std.fs.openFileAbsolute(absolute_local_path, .{ .mode = .read_only });
         defer file.close();
 
-        var file_hash: Hash = try self.calculateHash(file, .{
+        const file_hash: Hash = try self.calculateHash(file, .{
             .use_file_timestamp = options.use_file_timestamp,
         });
         return try self.insertFile(file_hash, absolute_local_path);
@@ -1472,14 +1472,14 @@ pub const Context = struct {
         defer file.close();
         const absolute_local_path = try dir.realpathAlloc(self.allocator, dir_path);
 
-        var possible_file_entry = try self.fetchFileByPath(absolute_local_path);
+        const possible_file_entry = try self.fetchFileByPath(absolute_local_path);
         if (possible_file_entry) |file_entry| {
             // fetchFileByPath dupes the string so we need to free it here
             defer self.allocator.free(absolute_local_path);
             return file_entry;
         }
 
-        var file_hash: Hash = try self.calculateHash(file, .{
+        const file_hash: Hash = try self.calculateHash(file, .{
             .use_file_timestamp = options.use_file_timestamp,
         });
         return try self.insertFile(file_hash, absolute_local_path);
@@ -1592,7 +1592,7 @@ pub const Context = struct {
 
     pub fn fetchFileByPath(self: *Self, absolute_local_path: []const u8) !?File {
         std.debug.assert(std.fs.path.isAbsolute(absolute_local_path));
-        var maybe_hash = try self.db.oneAlloc(
+        const maybe_hash = try self.db.oneAlloc(
             HashSQL,
             self.allocator,
             \\ select hashes.id, hashes.hash_data
@@ -1639,14 +1639,14 @@ pub const Context = struct {
         var tags_to_add = TagSet.init(self.allocator);
         defer tags_to_add.deinit();
 
-        var file_tags = try file.fetchTags(self.allocator);
+        const file_tags = try file.fetchTags(self.allocator);
         defer self.allocator.free(file_tags);
 
         while (true) {
             const old_tags_to_add_len = tags_to_add.count();
 
             for (file_tags) |file_tag| {
-                var maybe_parents = treemap.get(file_tag.core.id);
+                const maybe_parents = treemap.get(file_tag.core.id);
                 if (maybe_parents) |parents| {
                     for (parents) |parent| {
                         try tags_to_add.put(.{
@@ -1662,7 +1662,7 @@ pub const Context = struct {
 
             var tags_iter = tags_to_add.iterator();
             while (tags_iter.next()) |entry| {
-                var maybe_parents = treemap.get(entry.key_ptr.*.tag_id);
+                const maybe_parents = treemap.get(entry.key_ptr.*.tag_id);
                 if (maybe_parents) |parents| {
                     for (parents) |parent| {
                         try tags_to_add.put(.{
@@ -1717,7 +1717,7 @@ pub const Context = struct {
             "select rowid, child_tag, parent_tag from tag_implications",
         );
         defer tree_stmt.deinit();
-        var tree_rows = try tree_stmt.all(
+        const tree_rows = try tree_stmt.all(
             struct { row_id: RowID, child_tag: ID.SQL, parent_tag: ID.SQL },
             self.allocator,
             .{},
@@ -1738,7 +1738,7 @@ pub const Context = struct {
             if (maybe_parents) |parents| {
                 // realloc
                 var new_parents = try self.allocator.alloc(TagTreeEntry, parents.len + 1);
-                std.mem.copy(TagTreeEntry, new_parents, parents);
+                std.mem.copyForwards(TagTreeEntry, new_parents, parents);
                 new_parents[new_parents.len - 1] = .{
                     .tag_id = ID.new(tree_row.parent_tag),
                     .row_id = tree_row.row_id,
@@ -1836,7 +1836,7 @@ pub const Context = struct {
             new_file_id: ID,
             index: usize,
         ) !void {
-            var all_file_hashes = try self.fetchFiles(self.ctx.allocator);
+            const all_file_hashes = try self.fetchFiles(self.ctx.allocator);
             defer self.ctx.allocator.free(all_file_hashes);
 
             var all_hash_ids = std.ArrayList(ID).init(self.ctx.allocator);
@@ -1940,7 +1940,7 @@ pub const Context = struct {
             .{ core_hash_id.sql(), core_data_blob, title },
         );
 
-        var pool_hash = Hash{ .id = core_hash_id, .hash_data = core_hash_bytes };
+        const pool_hash = Hash{ .id = core_hash_id, .hash_data = core_hash_bytes };
         logger.debug("created pool with hash {s}", .{pool_hash});
         return Pool{
             .ctx = self,
@@ -1991,7 +1991,7 @@ pub const Context = struct {
         // new_ctx does not own the memory we're giving to it through
         // load_options, so don't free it, or close its db connection,
         // as that's what we'll be stealing from it
-        var new_ctx = try loadDatabase(self.allocator, self.load_options);
+        const new_ctx = try loadDatabase(self.allocator, self.load_options);
         self.db = new_ctx.db;
     }
 };
@@ -2021,7 +2021,7 @@ pub fn log(
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
     const rc = sqlite.c.sqlite3_config(sqlite.c.SQLITE_CONFIG_LOG, sqliteLog, @as(?*anyopaque, null));
     if (rc != sqlite.c.SQLITE_OK) {
         logger.err("failed to configure: {d} '{s}'", .{
@@ -2138,7 +2138,7 @@ fn configCommand(args_it: *std.process.ArgIterator, ctx: *Context) !void {
     }
 }
 
-pub var test_db_path_buffer: [std.os.PATH_MAX]u8 = undefined;
+pub var test_db_path_buffer: [std.posix.PATH_MAX]u8 = undefined;
 
 pub var test_set_log = false;
 
@@ -2163,7 +2163,7 @@ pub fn makeTestContextWithOptions(options: MakeTestContextOptions) !Context {
 
     const homepath = try std.fs.cwd().realpath(".", &test_db_path_buffer);
 
-    var db = try sqlite.Db.init(.{
+    const db = try sqlite.Db.init(.{
         .mode = sqlite.Db.Mode{ .Memory = {} },
         .open_flags = .{
             .write = true,
@@ -2323,7 +2323,7 @@ test "file and tags" {
     // add tag
     try indexed_file.addTag(tag.core, .{});
 
-    var file_tags = try indexed_file.fetchTags(std.testing.allocator);
+    const file_tags = try indexed_file.fetchTags(std.testing.allocator);
     defer std.testing.allocator.free(file_tags);
 
     var saw_correct_tag_core = false;
@@ -2337,7 +2337,7 @@ test "file and tags" {
     // remove tag
     try indexed_file.removeTag(tag.core);
 
-    var file_tags_after_removal = try indexed_file.fetchTags(std.testing.allocator);
+    const file_tags_after_removal = try indexed_file.fetchTags(std.testing.allocator);
     defer std.testing.allocator.free(file_tags_after_removal);
     for (file_tags_after_removal) |file_tag| {
         if (std.mem.eql(u8, &tag.core.hash_data, &file_tag.core.hash_data))
@@ -2349,23 +2349,23 @@ test "in memory database" {
     var ctx = try makeTestContextRealFile();
     defer ctx.deinit();
 
-    var tag1 = try ctx.createNamedTag("test_tag", "en", null, .{});
+    const tag1 = try ctx.createNamedTag("test_tag", "en", null, .{});
     _ = tag1;
 
     try ctx.turnIntoMemoryDb();
 
-    var tag1_inmem = try ctx.fetchNamedTag("test_tag", "en");
+    const tag1_inmem = try ctx.fetchNamedTag("test_tag", "en");
     try std.testing.expect(tag1_inmem != null);
 
-    var tag2 = try ctx.createNamedTag("test_tag2", "en", null, .{});
+    const tag2 = try ctx.createNamedTag("test_tag2", "en", null, .{});
     _ = tag2;
 
-    var tag2_inmem = try ctx.fetchNamedTag("test_tag2", "en");
+    const tag2_inmem = try ctx.fetchNamedTag("test_tag2", "en");
     try std.testing.expect(tag2_inmem != null);
 
     try ctx.reopenDatabase();
 
-    var tag2_infile = try ctx.fetchNamedTag("test_tag2", "en");
+    const tag2_infile = try ctx.fetchNamedTag("test_tag2", "en");
     try std.testing.expect(tag2_infile == null);
 }
 
@@ -2382,13 +2382,13 @@ test "tag parenting" {
     var indexed_file = try ctx.createFileFromDir(tmp.dir, "test_file", .{});
     defer indexed_file.deinit();
 
-    var child_tag = try ctx.createNamedTag("child_test_tag", "en", null, .{});
+    const child_tag = try ctx.createNamedTag("child_test_tag", "en", null, .{});
     try indexed_file.addTag(child_tag.core, .{});
 
     // only add this through inferrence
-    var parent_tag = try ctx.createNamedTag("parent_test_tag", "en", null, .{});
-    var parent_tag2 = try ctx.createNamedTag("parent_test_tag2", "en", null, .{});
-    var parent_tag3 = try ctx.createNamedTag("parent_test_tag3", "en", null, .{});
+    const parent_tag = try ctx.createNamedTag("parent_test_tag", "en", null, .{});
+    const parent_tag2 = try ctx.createNamedTag("parent_test_tag2", "en", null, .{});
+    const parent_tag3 = try ctx.createNamedTag("parent_test_tag3", "en", null, .{});
     const tag_tree_entry_id = try ctx.createTagParent(child_tag, parent_tag);
     const tag_tree_entry2_id = try ctx.createTagParent(child_tag, parent_tag2);
     const tag_tree_entry3_id = try ctx.createTagParent(parent_tag2, parent_tag3);
@@ -2396,7 +2396,7 @@ test "tag parenting" {
 
     // assert both now exist
 
-    var file_tags = try indexed_file.fetchTags(std.testing.allocator);
+    const file_tags = try indexed_file.fetchTags(std.testing.allocator);
     defer std.testing.allocator.free(file_tags);
 
     var saw_child = false;
@@ -2454,7 +2454,7 @@ test "file pools" {
     var indexed_file3 = try ctx.createFileFromDir(tmp.dir, "test_file3", .{});
     defer indexed_file3.deinit();
 
-    var child_tag = try ctx.createNamedTag("child_test_tag", "en", null, .{});
+    const child_tag = try ctx.createNamedTag("child_test_tag", "en", null, .{});
     try indexed_file1.addTag(child_tag.core, .{});
     try indexed_file2.addTag(child_tag.core, .{});
     try indexed_file3.addTag(child_tag.core, .{});
@@ -2475,7 +2475,7 @@ test "file pools" {
         try pool.addFile(indexed_file1.hash.id);
         try pool.addFile(indexed_file2.hash.id);
 
-        var file_hashes = try pool.fetchFiles(ctx.allocator);
+        const file_hashes = try pool.fetchFiles(ctx.allocator);
         defer ctx.allocator.free(file_hashes);
 
         try std.testing.expectEqual(@as(usize, 3), file_hashes.len);
@@ -2488,7 +2488,7 @@ test "file pools" {
     {
         try pool.removeFile(indexed_file1.hash.id);
 
-        var file_hashes = try pool.fetchFiles(ctx.allocator);
+        const file_hashes = try pool.fetchFiles(ctx.allocator);
         defer ctx.allocator.free(file_hashes);
 
         try std.testing.expectEqual(@as(usize, 2), file_hashes.len);
@@ -2500,7 +2500,7 @@ test "file pools" {
     {
         try pool.addFile(indexed_file1.hash.id);
 
-        var file_hashes = try pool.fetchFiles(ctx.allocator);
+        const file_hashes = try pool.fetchFiles(ctx.allocator);
         defer ctx.allocator.free(file_hashes);
 
         try std.testing.expectEqual(@as(usize, 3), file_hashes.len);
@@ -2513,7 +2513,7 @@ test "file pools" {
     {
         try pool.removeFile(indexed_file1.hash.id);
 
-        var file_hashes = try pool.fetchFiles(ctx.allocator);
+        const file_hashes = try pool.fetchFiles(ctx.allocator);
         defer ctx.allocator.free(file_hashes);
 
         try std.testing.expectEqual(@as(usize, 2), file_hashes.len);
@@ -2525,7 +2525,7 @@ test "file pools" {
     {
         try pool.addFileAtIndex(indexed_file1.hash.id, 0);
 
-        var file_hashes = try pool.fetchFiles(ctx.allocator);
+        const file_hashes = try pool.fetchFiles(ctx.allocator);
         defer ctx.allocator.free(file_hashes);
 
         try std.testing.expectEqual(@as(usize, 3), file_hashes.len);
@@ -2541,12 +2541,12 @@ test "tag source basic" {
 
     var source = try ctx.createTagSource("my test tag source", .{});
 
-    var source_fetched_from_id = try ctx.fetchTagSource(.external, source.id);
+    const source_fetched_from_id = try ctx.fetchTagSource(.external, source.id);
     try std.testing.expect(source_fetched_from_id != null);
 
     try source.delete();
 
-    var source_after_delete = try ctx.fetchTagSource(.external, source.id);
+    const source_after_delete = try ctx.fetchTagSource(.external, source.id);
     try std.testing.expect(source_after_delete == null);
 }
 
@@ -2564,19 +2564,19 @@ test "tag sources" {
     var indexed_file1 = try ctx.createFileFromDir(tmp.dir, "test_file1", .{});
     defer indexed_file1.deinit();
 
-    var source = try ctx.createTagSource("my test tag source", .{});
+    const source = try ctx.createTagSource("my test tag source", .{});
 
-    var source2 = try ctx.createTagSource("my test tag source 2", .{});
+    const source2 = try ctx.createTagSource("my test tag source 2", .{});
     _ = source2;
 
-    var tag1 = try ctx.createNamedTag("child_test_tag", "en", null, .{});
-    var tag2 = try ctx.createNamedTag("child_test_tag2", "en", null, .{});
+    const tag1 = try ctx.createNamedTag("child_test_tag", "en", null, .{});
+    const tag2 = try ctx.createNamedTag("child_test_tag2", "en", null, .{});
 
     try indexed_file1.addTag(tag1.core, .{ .source = source });
     try indexed_file1.addTag(tag2.core, .{ .source = null });
 
     {
-        var file_tags = try indexed_file1.fetchTags(std.testing.allocator);
+        const file_tags = try indexed_file1.fetchTags(std.testing.allocator);
         defer std.testing.allocator.free(file_tags);
 
         var saw_source = false;

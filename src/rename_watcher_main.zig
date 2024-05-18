@@ -3,7 +3,7 @@ const sqlite = @import("sqlite");
 const manage_main = @import("main.zig");
 const Context = manage_main.Context;
 const ID = manage_main.ID;
-const ExpiringHashMap = @import("expiring-hash-map").ExpiringHashMap;
+const ExpiringHashMap = @import("expiring_hash_map").ExpiringHashMap;
 
 const logger = std.log.scoped(.awtfdb_watcher);
 
@@ -24,7 +24,7 @@ const HELPTEXT =
     \\ 	-V				prints version and exits
 ;
 
-const PidTid = struct { pid: std.os.pid_t, tid: std.os.pid_t };
+const PidTid = struct { pid: std.posix.pid_t, tid: std.posix.pid_t };
 const StringAsList = std.ArrayList(u8);
 const ChunkedName = struct { state: enum { NeedMore, Complete }, data: StringAsList };
 const ChunkedNameMap = ExpiringHashMap(30 * std.time.ns_per_s, 1024, PidTid, ChunkedName);
@@ -57,18 +57,18 @@ const RenameContext = struct {
 
         const pid_string = line_it.next().?;
         const tid_string = line_it.next().?;
-        const pid = try std.fmt.parseInt(std.os.pid_t, pid_string, 10);
-        const tid = try std.fmt.parseInt(std.os.pid_t, tid_string, 10);
+        const pid = try std.fmt.parseInt(std.posix.pid_t, pid_string, 10);
+        const tid = try std.fmt.parseInt(std.posix.pid_t, tid_string, 10);
         const pid_tid_key = PidTid{ .pid = pid, .tid = tid };
 
         const is_oldname_message = std.mem.eql(u8, message_type, "oldname");
         const is_newname_message = std.mem.eql(u8, message_type, "newname");
 
         if (std.mem.eql(u8, message_type, "execve")) {
-            var cwd_proc_path = try std.fmt.allocPrint(self.allocator, "/proc/{d}/cwd", .{pid});
+            const cwd_proc_path = try std.fmt.allocPrint(self.allocator, "/proc/{d}/cwd", .{pid});
             defer self.allocator.free(cwd_proc_path);
 
-            var cwd_path = std.fs.realpathAlloc(self.allocator, cwd_proc_path) catch |err| switch (err) {
+            const cwd_path = std.fs.realpathAlloc(self.allocator, cwd_proc_path) catch |err| switch (err) {
                 error.AccessDenied, error.FileNotFound => {
                     logger.debug("can't access cwd for {d}, ignoring rename", .{pid});
                     return;
@@ -76,7 +76,7 @@ const RenameContext = struct {
                 else => return err,
             };
 
-            var to_remove = try self.cwds.put(pid_tid_key, cwd_path);
+            const to_remove = try self.cwds.put(pid_tid_key, cwd_path);
             defer self.allocator.free(to_remove);
             for (to_remove) |removed_value| self.allocator.free(removed_value);
         } else if (std.mem.eql(u8, message_type, "exit_execve")) {
@@ -103,7 +103,7 @@ const RenameContext = struct {
             var map_to_put_in: *ChunkedNameMap =
                 if (is_oldname_message) self.oldnames else self.newnames;
 
-            var maybe_chunk = map_to_put_in.getPtr(pid_tid_key);
+            const maybe_chunk = map_to_put_in.getPtr(pid_tid_key);
 
             if (maybe_chunk) |maybe_expired_chunk| {
                 switch (maybe_expired_chunk) {
@@ -138,7 +138,7 @@ const RenameContext = struct {
                     chunk.state = .Complete;
                 }
 
-                var removed_values = try map_to_put_in.put(
+                const removed_values = try map_to_put_in.put(
                     pid_tid_key,
                     chunk,
                 );
@@ -210,7 +210,7 @@ const RenameContext = struct {
             // if we don't have it already, try to fetch it from procfs
             // as this might be a process we didn't know about before
 
-            var cwd_proc_path = try std.fmt.allocPrint(self.allocator, "/proc/{d}/cwd", .{pid});
+            const cwd_proc_path = try std.fmt.allocPrint(self.allocator, "/proc/{d}/cwd", .{pid});
             defer self.allocator.free(cwd_proc_path);
 
             cwd_path = std.fs.realpathAlloc(self.allocator, cwd_proc_path) catch |err| switch (err) {
@@ -228,7 +228,7 @@ const RenameContext = struct {
             self.allocator.free(cwd_path.?);
 
         // applying cwd_path if the path is already absolute is incorrect behavior.
-        var oldpath = if (!is_oldname_absolute)
+        const oldpath = if (!is_oldname_absolute)
             try std.fs.path.resolve(self.allocator, &[_][]const u8{
                 cwd_path.?,
                 relative_old_name,
@@ -287,7 +287,7 @@ const RenameContext = struct {
 
         // find out if the target newpath is a folder or not by searching
         // if there are multiple entries with it already
-        var newpath_count = (try self.ctx.db.one(
+        const newpath_count = (try self.ctx.db.one(
             usize,
             \\ select count(*)
             \\ from files
@@ -396,7 +396,7 @@ const RenameContext = struct {
             }
 
             if (is_directory_move) {
-                var oldpath_assumed_folder_buffer: [std.os.PATH_MAX]u8 = undefined;
+                var oldpath_assumed_folder_buffer: [std.posix.PATH_MAX]u8 = undefined;
                 const oldpath_assumed_folder = try std.fmt.bufPrint(
                     &oldpath_assumed_folder_buffer,
                     "{s}{s}",
@@ -404,7 +404,7 @@ const RenameContext = struct {
                 );
 
                 for (raw_files) |raw_file| {
-                    var replace_buffer: [std.os.PATH_MAX]u8 = undefined;
+                    var replace_buffer: [std.posix.PATH_MAX]u8 = undefined;
                     if (std.mem.startsWith(u8, raw_file.local_path, oldpath_assumed_folder)) {
                         // this is a file in a folder, update it accordingly
 
@@ -473,14 +473,14 @@ var maybe_self_pipe: ?Pipe = null;
 
 const SignalData = extern struct {
     signal: c_int,
-    info: std.os.siginfo_t,
+    info: std.posix.siginfo_t,
     uctx: ?*const anyopaque,
 };
 const SignalList = std.ArrayList(SignalData);
 
 fn signalHandler(
     signal: c_int,
-    info: *const std.os.siginfo_t,
+    info: *const std.posix.siginfo_t,
     uctx: ?*const anyopaque,
 ) callconv(.C) void {
     if (maybe_self_pipe) |self_pipe| {
@@ -508,7 +508,7 @@ pub fn main() anyerror!void {
         return error.ConfigFail;
     }
 
-    const self_pipe_fds = try std.os.pipe();
+    const self_pipe_fds = try std.posix.pipe();
     maybe_self_pipe = .{
         .reader = .{ .handle = self_pipe_fds[0] },
         .writer = .{ .handle = self_pipe_fds[1] },
@@ -518,21 +518,21 @@ pub fn main() anyerror!void {
         maybe_self_pipe.?.writer.close();
     }
 
-    var mask = std.os.empty_sigset;
+    var mask = std.posix.empty_sigset;
     // only linux and darwin implement sigaddset() on zig stdlib. huh.
-    std.os.linux.sigaddset(&mask, std.os.SIG.TERM);
-    std.os.linux.sigaddset(&mask, std.os.SIG.INT);
-    var sa = std.os.Sigaction{
+    std.os.linux.sigaddset(&mask, std.posix.SIG.TERM);
+    std.os.linux.sigaddset(&mask, std.posix.SIG.INT);
+    var sa = std.posix.Sigaction{
         .handler = .{ .sigaction = signalHandler },
         .mask = mask,
         .flags = 0,
     };
-    try std.os.sigaction(std.os.SIG.TERM, &sa, null);
-    try std.os.sigaction(std.os.SIG.INT, &sa, null);
+    try std.posix.sigaction(std.posix.SIG.TERM, &sa, null);
+    try std.posix.sigaction(std.posix.SIG.INT, &sa, null);
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
 
     var args_it = std.process.args();
     _ = args_it.skip();
@@ -597,28 +597,28 @@ pub fn main() anyerror!void {
         _ = proc.kill() catch unreachable;
     }
 
-    var wait_pipe = try std.os.pipe();
-    defer std.os.close(wait_pipe[0]);
-    defer std.os.close(wait_pipe[1]);
+    const wait_pipe = try std.posix.pipe();
+    defer std.posix.close(wait_pipe[0]);
+    defer std.posix.close(wait_pipe[1]);
 
-    var pidfd: ?std.os.fd_t = null;
+    var pidfd: ?std.posix.fd_t = null;
 
     const pidfd_rc = std.os.linux.pidfd_open(proc.id, 0);
-    switch (std.os.errno(pidfd_rc)) {
-        .SUCCESS => pidfd = @as(std.os.fd_t, @intCast(pidfd_rc)),
+    switch (std.posix.errno(pidfd_rc)) {
+        .SUCCESS => pidfd = @as(std.posix.fd_t, @intCast(pidfd_rc)),
         .INVAL => unreachable,
         .NFILE, .MFILE => return error.TooManyFileDescriptors,
         .NODEV => return error.NoDevice,
         .NOMEM => return error.SystemResources,
         .SRCH => unreachable, // race condition
-        else => |err| return std.os.unexpectedErrno(err),
+        else => |err| return std.posix.unexpectedErrno(err),
     }
 
-    var sockets = [_]std.os.pollfd{
-        .{ .fd = proc.stdout.?.handle, .events = std.os.POLL.IN, .revents = 0 },
-        .{ .fd = proc.stderr.?.handle, .events = std.os.POLL.IN, .revents = 0 },
-        .{ .fd = pidfd orelse return error.InvalidPidFd, .events = std.os.POLL.IN, .revents = 0 },
-        .{ .fd = maybe_self_pipe.?.reader.handle, .events = std.os.POLL.IN, .revents = 0 },
+    var sockets = [_]std.posix.pollfd{
+        .{ .fd = proc.stdout.?.handle, .events = std.posix.POLL.IN, .revents = 0 },
+        .{ .fd = proc.stderr.?.handle, .events = std.posix.POLL.IN, .revents = 0 },
+        .{ .fd = pidfd orelse return error.InvalidPidFd, .events = std.posix.POLL.IN, .revents = 0 },
+        .{ .fd = maybe_self_pipe.?.reader.handle, .events = std.posix.POLL.IN, .revents = 0 },
     };
 
     var oldnames = ChunkedNameMap.init(allocator);
@@ -635,7 +635,7 @@ pub fn main() anyerror!void {
     defer rename_ctx.deinit();
 
     while (rename_ctx.keep_running) {
-        const available = try std.os.poll(&sockets, -1);
+        const available = try std.posix.poll(&sockets, -1);
         if (available == 0) {
             logger.info("timed out, retrying", .{});
             continue;
@@ -680,15 +680,15 @@ pub fn main() anyerror!void {
                 const line = line_buffer[0..buffer_offset];
                 logger.warn("got stderr: {s}", .{line});
             } else if (pollfd.fd == pidfd) {
-                var siginfo: std.os.siginfo_t = undefined;
+                var siginfo: std.posix.siginfo_t = undefined;
                 const waitid_rc = std.os.linux.waitid(.PIDFD, pidfd.?, &siginfo, 0);
-                switch (std.os.errno(waitid_rc)) {
+                switch (std.posix.errno(waitid_rc)) {
                     .SUCCESS => {},
                     .CHILD => unreachable, // unknown process. race condition
                     .INVAL => unreachable, // programming error
                     else => |err| {
                         logger.err("wtf {}", .{err});
-                        return std.os.unexpectedErrno(err);
+                        return std.posix.unexpectedErrno(err);
                     },
                 }
                 logger.err("bpftrace exited with {d}", .{siginfo.signo});
@@ -733,15 +733,15 @@ test "rename syscalls trigger db rename" {
     // also should help if we think about going beyond bpftrace
     //  (dtrace for macos and bsds maybe?)
 
-    var full_tmp_dir_path = try tmp.dir.realpathAlloc(allocator, ".");
+    const full_tmp_dir_path = try tmp.dir.realpathAlloc(allocator, ".");
     defer allocator.free(full_tmp_dir_path);
 
-    var oldname = try std.fs.path.resolve(allocator, &[_][]const u8{
+    const oldname = try std.fs.path.resolve(allocator, &[_][]const u8{
         full_tmp_dir_path,
         "test_file",
     });
     defer allocator.free(oldname);
-    var newname = try std.fs.path.resolve(allocator, &[_][]const u8{
+    const newname = try std.fs.path.resolve(allocator, &[_][]const u8{
         full_tmp_dir_path,
         "test_file2",
     });
@@ -819,20 +819,20 @@ test "rename syscalls trigger db rename (target being a folder)" {
     // also should help if we think about going beyond bpftrace
     //  (dtrace for macos and bsds maybe?)
 
-    var full_tmp_dir_path = try tmp.dir.realpathAlloc(allocator, ".");
+    const full_tmp_dir_path = try tmp.dir.realpathAlloc(allocator, ".");
     defer allocator.free(full_tmp_dir_path);
 
-    var full_target_tmp_dir_path = try target_tmp.dir.realpathAlloc(allocator, ".");
+    const full_target_tmp_dir_path = try target_tmp.dir.realpathAlloc(allocator, ".");
     defer allocator.free(full_target_tmp_dir_path);
 
-    var oldname = try std.fs.path.resolve(allocator, &[_][]const u8{
+    const oldname = try std.fs.path.resolve(allocator, &[_][]const u8{
         full_tmp_dir_path,
         "test_file",
     });
     defer allocator.free(oldname);
-    var newname = full_target_tmp_dir_path;
+    const newname = full_target_tmp_dir_path;
 
-    var actual_newname = try std.fs.path.resolve(allocator, &[_][]const u8{
+    const actual_newname = try std.fs.path.resolve(allocator, &[_][]const u8{
         full_target_tmp_dir_path,
         "test_file",
     });

@@ -1,5 +1,5 @@
 const std = @import("std");
-const deps = @import("./deps.zig");
+//const deps = @import("deps.zig");
 
 const EXECUTABLES = .{
     .{ "awtfdb-manage", "src/main.zig" },
@@ -16,11 +16,11 @@ const EXECUTABLES = .{
 
 fn addGraphicsMagick(thing: anytype) void {
     thing.linkLibC();
-    thing.addIncludePath(.{ .path = "/usr/include" });
-    thing.addIncludePath(.{ .path = "/usr/include/GraphicsMagick" });
+    thing.addIncludePath(.{ .cwd_relative = "/usr/include" });
+    thing.addIncludePath(.{ .cwd_relative = "/usr/include/GraphicsMagick" });
 }
 
-pub fn build(b: *std.build.Builder) !void {
+pub fn build(b: *std.Build) !void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options
@@ -31,9 +31,30 @@ pub fn build(b: *std.build.Builder) !void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const optimize = b.standardOptimizeOption(.{});
 
+    const sqlite_pkg = b.dependency("sqlite", .{ .optimize = optimize, .target = target });
+    const pcre_pkg = b.dependency("libpcre.zig", .{ .optimize = optimize, .target = target });
+    const magic_pkg = b.dependency("libmagic.zig", .{ .optimize = optimize, .target = target });
+    const expiring_hash_map_pkg = b.dependency("expiring_hash_map", .{ .optimize = optimize, .target = target });
+    const tunez_pkg = b.dependency("tunez", .{ .optimize = optimize, .target = target });
+    const ulid_pkg = b.dependency("zig-ulid", .{ .optimize = optimize, .target = target });
+    const Mod = struct { name: []const u8, mod: *std.Build.Module };
+
+    const mod_deps = &[_]Mod{
+        .{ .name = "sqlite", .mod = sqlite_pkg.module("sqlite") },
+        .{ .name = "libpcre", .mod = pcre_pkg.module("libpcre") },
+        .{ .name = "libmagic.zig", .mod = magic_pkg.module("libmagic") },
+        .{ .name = "expiring_hash_map", .mod = expiring_hash_map_pkg.module("expiring-hash-map") },
+        .{ .name = "tunez", .mod = tunez_pkg.module("tunez") },
+        .{ .name = "ulid", .mod = ulid_pkg.module("zig-ulid") },
+    };
+
+    const static_deps = &[_]*std.Build.Step.Compile{
+        sqlite_pkg.artifact("sqlite"),
+    };
+
     const exe_tests = b.addTest(
         .{
-            .root_source_file = .{ .path = "src/main.zig" },
+            .root_source_file = b.path("src/main.zig"),
             .optimize = optimize,
             .target = target,
         },
@@ -42,28 +63,45 @@ pub fn build(b: *std.build.Builder) !void {
     const run_unit_tests = b.addRunArtifact(exe_tests);
 
     addGraphicsMagick(exe_tests);
-    deps.addAllTo(exe_tests);
+
+    for (mod_deps) |dep| {
+        exe_tests.root_module.addImport(dep.name, dep.mod);
+    }
+
+    for (static_deps) |lib| {
+        exe_tests.linkLibrary(lib);
+    }
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
-    if (optimize == .Debug or optimize == .ReleaseSafe) {
+    //if (optimize == .Debug or optimize == .ReleaseSafe) {
+
+    if (true) {
+        // faster build by making a single executable
         const single_exe = b.addExecutable(
             .{
                 .name = "wrapper-awtfdb",
-                .root_source_file = .{ .path = "src/wrapmain.zig" },
+                .root_source_file = b.path("src/wrapmain.zig"),
                 .optimize = optimize,
                 .target = target,
             },
         );
 
-        deps.addAllTo(single_exe);
+        for (mod_deps) |dep| {
+            single_exe.root_module.addImport(dep.name, dep.mod);
+        }
+
+        for (static_deps) |lib| {
+            single_exe.linkLibrary(lib);
+        }
+
         addGraphicsMagick(single_exe);
         b.installArtifact(single_exe);
 
         const hardlink_install = try b.allocator.create(CustomHardLinkStep);
 
-        var hardlink_step = std.build.Step.init(.{
+        const hardlink_step = std.Build.Step.init(.{
             .id = .custom,
             .name = "link the utils",
             .owner = b,
@@ -76,38 +114,39 @@ pub fn build(b: *std.build.Builder) !void {
         };
         hardlink_install.step.dependOn(&single_exe.step);
         b.getInstallStep().dependOn(&hardlink_install.step);
-    } else {
-        // release modes build all exes separately
-        inline for (EXECUTABLES) |exec_decl| {
-            const exec_name = exec_decl.@"0";
-            const exec_entrypoint = exec_decl.@"1";
-
-            var tool_exe = b.addExecutable(
-                .{
-                    .name = exec_name,
-                    .root_source_file = .{ .path = exec_entrypoint },
-                    .optimize = optimize,
-                    .target = target,
-                },
-            );
-
-            b.installArtifact(tool_exe);
-            addGraphicsMagick(tool_exe);
-            deps.addAllTo(tool_exe);
-        }
     }
+    //    } else {
+    //        // release modes build all exes separately
+    //        inline for (EXECUTABLES) |exec_decl| {
+    //            const exec_name = exec_decl.@"0";
+    //            const exec_entrypoint = exec_decl.@"1";
+    //
+    //            const tool_exe = b.addExecutable(
+    //                .{
+    //                    .name = exec_name,
+    //                    .root_source_file = .{ .path = exec_entrypoint },
+    //                    .optimize = optimize,
+    //                    .target = target,
+    //                },
+    //            );
+    //
+    //            b.installArtifact(tool_exe);
+    //            addGraphicsMagick(tool_exe);
+    //            comptime addAllTo(mod_deps, static_deps, tool_exe);
+    //        }
+    //    }
 }
 
 const CustomHardLinkStep = struct {
-    builder: *std.build.Builder,
-    step: std.build.Step,
-    exe: *std.build.LibExeObjStep,
+    builder: *std.Build,
+    step: std.Build.Step,
+    exe: *std.Build.Step.Compile,
 
     const Self = @This();
 
-    fn make(step: *std.build.Step, node: *std.Progress.Node) !void {
+    fn make(step: *std.Build.Step, node: *std.Progress.Node) !void {
         _ = node;
-        const self: *Self = @fieldParentPtr(Self, "step", step);
+        const self: *Self = @fieldParentPtr("step", step);
         const builder = self.builder;
 
         const wrapmain_path = self.exe.getEmittedBin().getPath(builder);

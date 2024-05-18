@@ -40,7 +40,7 @@ pub fn main() anyerror!void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
 
     var args_it = std.process.args();
     _ = args_it.skip();
@@ -166,7 +166,7 @@ fn renameWithIndex(
     const maybe_to_path = try PathHandle.openPath(to_fspath, .{ .want_file = false }, .{});
 
     for (from_paths) |from_path_str| {
-        var buffer: [std.os.PATH_MAX]u8 = undefined;
+        var buffer: [std.posix.PATH_MAX]u8 = undefined;
         var from_path: PathHandle = try PathHandle.openPath(from_path_str, .{}, .{ .path_buffer = &buffer });
         defer from_path.close();
 
@@ -231,7 +231,7 @@ fn renameWithIndex(
 
                 logger.info("new_path: {s}", .{new_path_full});
                 // ensure that the new path is an actually valid fspath
-                var realpath_buffer: [std.os.PATH_MAX]u8 = undefined;
+                var realpath_buffer: [std.posix.PATH_MAX]u8 = undefined;
                 var new_path_handle = try PathHandle.openPath(new_path_full, .{ .want_file = true }, .{ .path_buffer = &realpath_buffer });
                 defer new_path_handle.close();
 
@@ -262,7 +262,7 @@ test "renaming with index support" {
     var paths = [_][]const u8{real};
 
     var buf2: [8192]u8 = undefined;
-    var to_path = try std.fmt.bufPrint(&buf2, "{s}_coolversion", .{real});
+    const to_path = try std.fmt.bufPrint(&buf2, "{s}_coolversion", .{real});
 
     try renameWithIndex(ctx.allocator, &ctx, &paths, to_path);
     var indexed_file2 = (try ctx.fetchFile(indexed_file1.hash.id)).?;

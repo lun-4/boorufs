@@ -185,7 +185,7 @@ pub fn main() anyerror!void {
 
     var raw_stderr = std.io.getStdErr();
     var buffered_stderr = BufferedFileWriter{ .unbuffered_writer = raw_stderr.writer() };
-    var stderr = buffered_stderr.writer();
+    const stderr = buffered_stderr.writer();
 
     var returned_files = std.ArrayList(Context.File).init(allocator);
     defer {
@@ -215,11 +215,11 @@ pub fn main() anyerror!void {
     logger.info("found {d} files", .{returned_files.items.len});
 
     if (given_args.link) {
-        var PREFIX = "/tmp/awtf/afind-";
-        var template = "/tmp/awtf/afind-XXXXXXXXXX";
+        const PREFIX = "/tmp/awtf/afind-";
+        const template = "/tmp/awtf/afind-XXXXXXXXXX";
         var tmp_path: [template.len]u8 = undefined;
-        std.mem.copy(u8, &tmp_path, PREFIX);
-        var fill_here = tmp_path[PREFIX.len..];
+        std.mem.copyForwards(u8, &tmp_path, PREFIX);
+        const fill_here = tmp_path[PREFIX.len..];
 
         const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
         var r = std.rand.DefaultPrng.init(seed);
@@ -260,7 +260,7 @@ pub fn main() anyerror!void {
         logger.info("successfully created symlinked folder at {s}", .{tmp_path});
         try stdout.print("{s}\n", .{tmp_path});
 
-        const self_pipe_fds = try std.os.pipe();
+        const self_pipe_fds = try std.posix.pipe();
         maybe_self_pipe = .{
             .reader = .{ .handle = self_pipe_fds[0] },
             .writer = .{ .handle = self_pipe_fds[1] },
@@ -271,25 +271,25 @@ pub fn main() anyerror!void {
         }
 
         // configure signal handler that's going to push data to the selfpipe
-        var mask = std.os.empty_sigset;
-        std.os.linux.sigaddset(&mask, std.os.SIG.TERM);
-        std.os.linux.sigaddset(&mask, std.os.SIG.INT);
-        var sa = std.os.Sigaction{
+        var mask = std.posix.empty_sigset;
+        std.os.linux.sigaddset(&mask, std.posix.SIG.TERM);
+        std.os.linux.sigaddset(&mask, std.posix.SIG.INT);
+        var sa = std.posix.Sigaction{
             .handler = .{ .sigaction = signal_handler },
             .mask = mask,
             .flags = 0,
         };
 
-        try std.os.sigaction(std.os.SIG.TERM, &sa, null);
-        try std.os.sigaction(std.os.SIG.INT, &sa, null);
+        try std.posix.sigaction(std.posix.SIG.TERM, &sa, null);
+        try std.posix.sigaction(std.posix.SIG.INT, &sa, null);
 
-        const PollFdList = std.ArrayList(std.os.pollfd);
+        const PollFdList = std.ArrayList(std.posix.pollfd);
         var sockets = PollFdList.init(allocator);
         defer sockets.deinit();
 
-        try sockets.append(std.os.pollfd{
+        try sockets.append(std.posix.pollfd{
             .fd = maybe_self_pipe.?.reader.handle,
-            .events = std.os.POLL.IN,
+            .events = std.posix.POLL.IN,
             .revents = 0,
         });
 
@@ -300,7 +300,7 @@ pub fn main() anyerror!void {
         var run: bool = true;
         while (run) {
             logger.debug("polling for signals...", .{});
-            const available = try std.os.poll(sockets.items, -1);
+            const available = try std.posix.poll(sockets.items, -1);
             try std.testing.expect(available > 0);
             for (sockets.items) |pollfd| {
                 logger.debug("fd {d} has revents {d}", .{ pollfd.fd, pollfd.revents });
@@ -327,19 +327,19 @@ const Pipe = struct {
     writer: std.fs.File,
 };
 
-var zig_segfault_handler: fn (i32, *const std.os.siginfo_t, ?*const anyopaque) callconv(.C) void = undefined;
+var zig_segfault_handler: fn (i32, *const std.posix.siginfo_t, ?*const anyopaque) callconv(.C) void = undefined;
 var maybe_self_pipe: ?Pipe = null;
 
 const SignalData = extern struct {
     signal: c_int,
-    info: std.os.siginfo_t,
+    info: std.posix.siginfo_t,
     uctx: ?*const anyopaque,
 };
 const SignalList = std.ArrayList(SignalData);
 
 fn signal_handler(
     signal: c_int,
-    info: *const std.os.siginfo_t,
+    info: *const std.posix.siginfo_t,
     uctx: ?*const anyopaque,
 ) callconv(.C) void {
     if (maybe_self_pipe) |self_pipe| {
@@ -395,11 +395,11 @@ pub const SqlGiver = struct {
     pub const CaptureType = enum(usize) { Or = 0, Not, And, Tag, RawTag };
 
     pub fn init() !Self {
-        var or_operator = try libpcre.Regex.compile("( +)?\\|( +)?", .{});
-        var not_operator = try libpcre.Regex.compile("( +)?-( +)?", .{});
-        var and_operator = try libpcre.Regex.compile(" +", .{});
-        var tag_regex = try libpcre.Regex.compile("[a-zA-Z-_0-9:;&\\*\\(\\)]+", .{});
-        var raw_tag_regex = try libpcre.Regex.compile("\".*?\"", .{});
+        const or_operator = try libpcre.Regex.compile("( +)?\\|( +)?", .{});
+        const not_operator = try libpcre.Regex.compile("( +)?-( +)?", .{});
+        const and_operator = try libpcre.Regex.compile(" +", .{});
+        const tag_regex = try libpcre.Regex.compile("[a-zA-Z-_0-9:;&\\*\\(\\)]+", .{});
+        const raw_tag_regex = try libpcre.Regex.compile("\".*?\"", .{});
 
         return Self{ .operators = [_]libpcre.Regex{
             or_operator,
