@@ -186,7 +186,10 @@ fn renameWithIndex(
                 const old_path_full = try std.fs.cwd().realpathAlloc(allocator, old_path);
                 defer allocator.free(old_path_full);
 
-                var old_file = (try ctx.fetchFileByPath(old_path_full)).?;
+                var old_file = (try ctx.fetchFileByPath(old_path_full)) orelse {
+                    logger.err("given file {s} is not indexed!", .{old_path_full});
+                    return error.UnindexedFile;
+                };
                 defer old_file.deinit();
 
                 var target_dir_fspath: ?[]const u8 = null;
