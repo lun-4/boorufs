@@ -546,6 +546,7 @@ test "remove action" {
 const SearchAction = struct {
     pub const Config = struct {
         exact: bool = false,
+        show_hashes: bool = false,
         query: ?[]const u8 = null,
     };
 
@@ -555,6 +556,8 @@ const SearchAction = struct {
         while (args_it.next()) |arg| {
             if (std.mem.eql(u8, arg, "--exact")) {
                 config.exact = true;
+            } else if (std.mem.eql(u8, arg, "--hash")) {
+                config.show_hashes = true;
             } else {
                 config.query = arg;
             }
@@ -581,17 +584,21 @@ const SearchAction = struct {
 
         var stmt = if (self.config.exact)
             try self.ctx.db.prepareDynamic(
-                \\ select distinct core_hash
+                \\ select distinct core_hash core_hash, hashes.hash_data
                 \\ from tag_names
+                \\ join hashes
+                \\  on hashes.id = tag_names.core_hash
                 \\ where tag_text = ?
-                \\ order by core_hash asc
+                \\ order by hashes.id asc
             )
         else
             try self.ctx.db.prepareDynamic(
-                \\ select distinct core_hash
+                \\ select distinct core_hash core_hash, hashes.hash_data
                 \\ from tag_names
+                \\ join hashes
+                \\  on hashes.id = tag_names.core_hash
                 \\ where tag_text LIKE '%' || ? || '%'
-                \\ order by core_hash asc
+                \\ order by hashes.id asc
             );
 
         defer stmt.deinit();
@@ -599,6 +606,7 @@ const SearchAction = struct {
         const tag_names = try stmt.all(
             struct {
                 core_hash: ID.SQL,
+                hash_data: sqlite.Blob,
             },
             self.ctx.allocator,
             .{},
@@ -610,9 +618,10 @@ const SearchAction = struct {
         }
 
         for (tag_names) |tag_name| {
+            defer self.ctx.allocator.free(tag_name.hash_data.data);
             const fake_hash = Context.HashSQL{
                 .id = tag_name.core_hash,
-                .hash_data = undefined,
+                .hash_data = tag_name.hash_data,
             };
             var related_tags = try self.ctx.fetchTagsFromCore(
                 self.ctx.allocator,
@@ -624,7 +633,11 @@ const SearchAction = struct {
             defer related_tags.deinit();
 
             const full_tag_core = related_tags.items[0].core;
-            try stdout.print("{s}", .{full_tag_core.id});
+            if (self.config.show_hashes) {
+                try stdout.print(" {s}", .{fake_hash.toRealHash()});
+            } else {
+                try stdout.print("{s}", .{full_tag_core.id});
+            }
             for (related_tags.items) |tag| {
                 try stdout.print(" '{s}'", .{tag});
             }
