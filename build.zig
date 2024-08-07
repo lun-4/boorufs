@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 //const deps = @import("deps.zig");
 
 const EXECUTABLES = .{
@@ -16,8 +17,22 @@ const EXECUTABLES = .{
 
 fn addGraphicsMagick(thing: anytype) void {
     thing.linkLibC();
-    thing.addIncludePath(.{ .cwd_relative = "/usr/include" });
-    thing.addIncludePath(.{ .cwd_relative = "/usr/include/GraphicsMagick" });
+
+    const arch = builtin.target.cpu.arch;
+    const target = builtin.target;
+    const include: []const u8 = "/usr/include";
+    var gm: []const u8 = "/usr/include/GraphicsMagick";
+
+    if (std.Target.isDarwin(target)) {
+        gm = switch (arch) {
+            .x86 => "/usr/local/include/GraphicsMagick",
+            .aarch64 => "/opt/homebrew/include/GraphicsMagick",
+            else => {},
+        };
+    }
+
+    thing.addIncludePath(.{ .cwd_relative = include });
+    thing.addIncludePath(.{ .cwd_relative = gm });
 }
 
 pub fn build(b: *std.Build) !void {
