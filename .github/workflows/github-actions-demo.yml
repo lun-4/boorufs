@@ -14,12 +14,6 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v1.3.0
         with:
           version: 0.13.0
-      - run: curl -L -w "%{http_code}" -o /usr/local/bin/zigmod https://github.com/nektro/zigmod/releases/download/r88/zigmod-x86_64-linux
-      - run: chmod +x /usr/local/bin/zigmod
-      - run: zigmod ci
-      - run: sed -i 's|exe.builder|exe.step.owner|g' deps.zig
-      - run: zig fmt .zigmod
-      - run: zig fmt deps.zig
       - run: sudo apt install -y libmagic1 libgraphicsmagick-q16-3 libgraphicsmagick1-dev
       - run: zig build test -freference-trace --verbose --verbose-link --verbose-cc
       - run: zig build
