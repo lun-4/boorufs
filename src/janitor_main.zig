@@ -22,6 +22,9 @@ const HELPTEXT =
     \\ 	--repair			attempt to repair consistency
     \\ 					(this operation may be destructive to
     \\ 					the index file, only run this manually)
+    \\ 	--hash-files-smaller-than			only hash files smaller than a specific size
+    \\				e.g 10K, 10M, 3G
+    \\ 	--from-report <path>			use existing report file for double check
 ;
 
 const Counter = struct { total: usize = 0, unrepairable: usize = 0 };
