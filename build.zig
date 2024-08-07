@@ -144,7 +144,7 @@ const CustomHardLinkStep = struct {
 
     const Self = @This();
 
-    fn make(step: *std.Build.Step, node: *std.Progress.Node) !void {
+    fn make(step: *std.Build.Step, node: std.Progress.Node) !void {
         _ = node;
         const self: *Self = @fieldParentPtr("step", step);
         const builder = self.builder;

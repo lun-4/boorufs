@@ -37,7 +37,7 @@ BY ME. I WORK ON THIS PART TIME. BEWARE OF BUGS.**
 
 - almost everything is cross-platform, save for `awtfdb-watcher`
   - this was not tested as part of the v0.1 effort.
-- get [zig](https://github.com/ziglang/zig) (tested with 0.12.0)
+- get [zig](https://github.com/ziglang/zig) (tested with 0.13.0)
 - get libmagic and development headers
   - future work to not require this: https://github.com/lun-4/awtfdb/issues/44
 

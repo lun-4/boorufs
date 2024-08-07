@@ -579,7 +579,7 @@ pub fn main() anyerror!void {
 
     const bpftrace_program = @embedFile("./rename_trace.bt");
 
-    var proc = std.ChildProcess.init(
+    var proc = std.process.Child.init(
         &[_][]const u8{ "bpftrace", "-e", bpftrace_program },
         allocator,
     );
