@@ -7,12 +7,12 @@
             .hash = "1220e0300613f2b949a8328c5b1d9ba84777f2258c1535039afcb536e9e1228d2881",
         },
         .@"libpcre.zig" = .{
-            .url = "https://github.com/lun-4/libpcre.zig/archive/fb5dd02337da7c82d5427c76c6154e1dabe4b7b6.tar.gz",
-            .hash = "1220befbf027b9abd02d9e95ba4272ba7de98b1737be4f8a7fae99fa21ba9cb764d1",
+            .url = "git+https://github.com/kivikakk/libpcre.zig#1dc32407368651bc0118b752288c3b87af12ff50",
+            .hash = "1220039ac1b212be156069f9ed7e066571a8da5acc8f1adc33eb1a5c3bcbb4a8b47b",
         },
         .@"libmagic.zig" = .{
-            .url = "https://github.com/lun-4/libmagic.zig/archive/7a1c53698fd00029eb7c681e253429b07274def6.tar.gz",
-            .hash = "1220b4c46ad2866308b2dc8807b025cc86121f58d27a06582417b3e3479812375834",
+            .url = "git+https://github.com/lun-4/libmagic.zig#d2c3a620c5a85a742f02a353e2bd80421a6418ed",
+            .hash = "122051ae76e9ddd6a9cef92061e8e6b66ea06c455aa6e1742b069493c71e758f43dd",
         },
         .expiring_hash_map = .{
             .url = "https://github.com/lun-4/expiring-hash-map.zig/archive/6768a94377b1b502b8da62de47f5616feee4451b.tar.gz",
