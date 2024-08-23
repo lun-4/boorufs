@@ -66,6 +66,8 @@ const Args = struct {
     maybe_hash_files_smaller_than: ?usize = null,
     verbose: bool = false,
     from_report: ?[]const u8 = null,
+    skip_db: bool = false,
+    skip_tag_cores: bool = false,
 };
 
 pub fn janitorCheckCores(
@@ -198,6 +200,7 @@ pub fn janitorCheckUnusedHashes(
     counters: *ErrorCounters,
     given_args: Args,
 ) !void {
+    logger.info("checking unused hashes", .{});
     var hashes_stmt = try ctx.db.prepare(
         \\ select id
         \\ from hashes
@@ -232,6 +235,7 @@ pub fn janitorCheckTagNameRegex(
     counters: *ErrorCounters,
     given_args: Args,
 ) !void {
+    logger.info("checking tag names", .{});
     var stmt = try ctx.db.prepare(
         \\ select core_hash, tag_text
         \\ from tag_names
@@ -468,6 +472,7 @@ const Report = struct {
     }
 
     pub fn addFileNotFound(self: *Self, row: FileRow) !void {
+        self.counters.file_not_found.total += 1;
         try self.files_not_found.append(FileRow{
             .file_hash = row.file_hash,
             .local_path = try self.allocator.dupe(u8, row.local_path),
@@ -581,6 +586,10 @@ pub fn main() anyerror!u8 {
             given_args.full = true;
         } else if (std.mem.eql(u8, arg, "--only")) {
             state = .Only;
+        } else if (std.mem.eql(u8, arg, "--skip-db")) {
+            given_args.skip_db = true;
+        } else if (std.mem.eql(u8, arg, "--skip-tag-cores")) {
+            given_args.skip_tag_cores = true;
         } else if (std.mem.eql(u8, arg, "--hash-files-smaller-than")) {
             state = .HashFilesSmallerThan;
         } else if (std.mem.eql(u8, arg, "--from-report")) {
@@ -610,34 +619,36 @@ pub fn main() anyerror!u8 {
         try report.readFrom(report_file.reader());
     }
 
-    logger.info("running PRAGMA integrity_check", .{});
-    var stmt = try ctx.db.prepare("PRAGMA integrity_check;");
-    defer stmt.deinit();
+    if (!given_args.skip_db) {
+        logger.info("running PRAGMA integrity_check", .{});
+        var stmt = try ctx.db.prepare("PRAGMA integrity_check;");
+        defer stmt.deinit();
 
-    var it = try stmt.iterator([]const u8, .{});
-    const val = (try it.nextAlloc(ctx.allocator, .{})) orelse return error.PossiblyFailedIntegrityCheck;
-    defer ctx.allocator.free(val);
-    logger.info("integrity check returned '{?s}'", .{val});
-    if (!std.mem.eql(u8, val, "ok")) {
-        while (try it.nextAlloc(ctx.allocator, .{})) |row| {
-            defer ctx.allocator.free(row);
-            logger.info("integrity check returned '{?s}'", .{row});
+        var it = try stmt.iterator([]const u8, .{});
+        const val = (try it.nextAlloc(ctx.allocator, .{})) orelse return error.PossiblyFailedIntegrityCheck;
+        defer ctx.allocator.free(val);
+        logger.info("integrity check returned '{?s}'", .{val});
+        if (!std.mem.eql(u8, val, "ok")) {
+            while (try it.nextAlloc(ctx.allocator, .{})) |row| {
+                defer ctx.allocator.free(row);
+                logger.info("integrity check returned '{?s}'", .{row});
+            }
+            return error.FailedIntegrityCheck;
         }
-        return error.FailedIntegrityCheck;
-    }
-    logger.info("running PRAGMA foreign_key_check...", .{});
-    const maybe_row = try ctx.db.oneAlloc(struct {
-        source_table: []const u8,
-        invalid_rowid: ?i64,
-        referenced_table: []const u8,
-        foreign_key_constraint_index: i64,
-    }, ctx.allocator, "PRAGMA foreign_key_check", .{}, .{});
-    logger.info("foreign key check returned {?any}", .{maybe_row});
+        logger.info("running PRAGMA foreign_key_check...", .{});
+        const maybe_row = try ctx.db.oneAlloc(struct {
+            source_table: []const u8,
+            invalid_rowid: ?i64,
+            referenced_table: []const u8,
+            foreign_key_constraint_index: i64,
+        }, ctx.allocator, "PRAGMA foreign_key_check", .{}, .{});
+        logger.info("foreign key check returned {?any}", .{maybe_row});
 
-    if (maybe_row) |row| {
-        defer allocator.free(row.source_table);
-        defer allocator.free(row.referenced_table);
-        return error.FailedForeignKeyCheck;
+        if (maybe_row) |row| {
+            defer allocator.free(row.source_table);
+            defer allocator.free(row.referenced_table);
+            return error.FailedForeignKeyCheck;
+        }
     }
 
     var savepoint = try ctx.db.savepoint("janitor");
@@ -646,7 +657,9 @@ pub fn main() anyerror!u8 {
 
     // calculate hashes for tag_cores
     try janitorCheckFiles(&ctx, &report, given_args);
-    try janitorCheckCores(&ctx, &report, given_args);
+    if (!given_args.skip_tag_cores) {
+        try janitorCheckCores(&ctx, &report, given_args);
+    }
     try janitorCheckUnusedHashes(&ctx, &report.counters, given_args);
     try janitorCheckTagNameRegex(&ctx, &report.counters, given_args);
 
