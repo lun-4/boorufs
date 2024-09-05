@@ -1143,15 +1143,22 @@ pub fn main() anyerror!void {
             while (try walker.next()) |entry| {
                 switch (entry.kind) {
                     .file, .sym_link => {
+                        const child_realpath = try entry.dir.realpathAlloc(ctx.allocator, entry.basename);
                         logger.debug(
-                            "adding child path '{s}{s}{s}'",
-                            .{ path_to_include, std.fs.path.sep_str, entry.path },
+                            "checking path '{s}'",
+                            .{child_realpath},
                         );
+
+                        defer ctx.allocator.free(child_realpath);
+
+                        const maybe_existing_file = try ctx.fetchFileByPath(child_realpath);
 
                         // if we only want to reindex files already in
                         // the system, hash them first and try to fetch the file
                         // if it exists, move forward, if not, skip that file
-                        if (given_args.filter_indexed_files_only) {
+
+                        // NOTE: shortcircuit is possible if we fetch by path first, ignore if it already exists
+                        if (maybe_existing_file == null and given_args.filter_indexed_files_only) {
                             var fs_file = try entry.dir.openFile(
                                 entry.basename,
                                 .{ .mode = .read_only },
@@ -1168,11 +1175,16 @@ pub fn main() anyerror!void {
                                 logger.debug("skipping due to selected filter", .{});
                                 continue;
                             }
+                        } else if (given_args.filter_indexed_files_only) {
+                            logger.debug("already added!", .{});
                         }
 
-                        var file = try ctx.createFileFromDir(entry.dir, entry.basename, .{
-                            .use_file_timestamp = given_args.use_file_timestamp,
-                        });
+                        var file = if (maybe_existing_file) |f|
+                            f
+                        else
+                            try ctx.createFileFromDir(entry.dir, entry.basename, .{
+                                .use_file_timestamp = given_args.use_file_timestamp,
+                            });
                         try file_ids_for_tagtree.append(file.hash.id);
                         defer file.deinit();
                         {
