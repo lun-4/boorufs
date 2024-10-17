@@ -225,6 +225,7 @@ async def info():
                 "posts:favorite": "anonymous",
                 "posts:bulk-edit:tags": "power",
                 "posts:bulk-edit:safety": "power",
+                "posts:bulk-edit:delete": "power",
                 "tags:create": "regular",
                 "tags:edit:names": "power",
                 "tags:edit:category": "power",
