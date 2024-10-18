@@ -918,65 +918,85 @@ async def posts_fetch():
             "results": posts,
         }
 
-    result, mapped_tag_args, tag_rows = await compile_and_execute_query(
-        query, limit=limit, offset=offset
-    )
+    final_result_list = []
+    total_file_count = None
+    LOOP_TICK_LIMIT = 30
+    loop_tick = 0
 
-    with Timer() as main_counttimer:
-        total_rows_count = await app.db.execute(
-            f"select count(*) from ({result.query})",
-            mapped_tag_args,
+    # continue fetching until we hit the limit ('compressing' pool entries while at it)
+    while len(final_result_list) < limit and loop_tick < LOOP_TICK_LIMIT:
+        loop_tick += 1
+        result, mapped_tag_args, tag_rows = await compile_and_execute_query(
+            query, limit=limit, offset=offset
         )
-        row = await total_rows_count.fetchone()
-        total_files = row[0]
-    log.info("count query in %s", main_counttimer)
 
-    rows_coroutines = []
-    async for file_hash_row in tag_rows:
-        file_hash = file_hash_row[0]
-        log.debug("spawn task for %r", file_hash)
-        rows_coroutines.append(
-            fetch_file_entity(file_hash, fields=fields, from_file_listing=True)
+        if not total_file_count:
+            with Timer() as main_counttimer:
+                total_rows_count = await app.db.execute(
+                    f"select count(*) from ({result.query})",
+                    mapped_tag_args,
+                )
+                row = await total_rows_count.fetchone()
+                total_file_count = row[0]
+            log.info("count query in %s", main_counttimer)
+
+        rows_coroutines = []
+        async for file_hash_row in tag_rows:
+            file_hash = file_hash_row[0]
+            log.debug("spawn task for %r", file_hash)
+            rows_coroutines.append(
+                fetch_file_entity(file_hash, fields=fields, from_file_listing=True)
+            )
+        if not rows_coroutines:
+            # prevent empty results (aka we hit the end or theres no actual results for query)
+            # from just going into an infinite loop
+            break
+
+        log.debug("waiting for %d tasks", len(rows_coroutines))
+        with Timer() as gather_timer:
+            rows = await asyncio.gather(*rows_coroutines)
+        log.info(
+            "took %s to fetch file metadata (%d files)",
+            gather_timer,
+            len(rows_coroutines),
         )
-    log.debug("wait for %d tasks", len(rows_coroutines))
-    with Timer() as gather_timer:
-        rows = await asyncio.gather(*rows_coroutines)
-    log.info("took %s to fetch file metadata", gather_timer)
 
-    results = []
+        minipage_results = []
 
-    appending_pool_id = None
-    # prevent pool entries from appearing multiple times
-    for row in rows:
-        if "tags" not in fields:
-            results.append(row)
-            continue
+        appending_pool_id = None
+        # prevent pool entries from appearing multiple times
+        for row in rows:
+            if "tags" not in fields:
+                minipage_results.append(row)
+                continue
 
-        row_pool_id = None
-        for tag in row["tags"]:
-            tag_name = tag["names"][0]
-            if tag_name.startswith("pool:"):
-                _pool, pool_id = tag_name.split(":")
-                row_pool_id = pool_id
+            row_pool_id = None
+            for tag in row["tags"]:
+                tag_name = tag["names"][0]
+                if tag_name.startswith("pool:"):
+                    _pool, pool_id = tag_name.split(":")
+                    row_pool_id = pool_id
 
-        # if we weren't in a pool and we're still not in a pool, just keep appending
-        if appending_pool_id is None and row_pool_id is None:
-            results.append(row)
-            continue
+            # if we weren't in a pool and we're still not in a pool, just keep appending
+            if appending_pool_id is None and row_pool_id is None:
+                minipage_results.append(row)
+                continue
 
-        # if we are transitioning between pool ids (None->x or x->None), append the row
-        # and set appending_pool_id, the next row (assuming its a pool listing) will have
-        # the same pool id and won't trigger the transition (it's going to be x->x)
-        if appending_pool_id != row_pool_id:
-            results.append(row)
-            appending_pool_id = row_pool_id
+            # if we are transitioning between pool ids (None->x or x->None), append the row
+            # and set appending_pool_id, the next row (assuming its a pool listing) will have
+            # the same pool id and won't trigger the transition (it's going to be x->x)
+            if appending_pool_id != row_pool_id:
+                minipage_results.append(row)
+                appending_pool_id = row_pool_id
+        offset += len(rows)
+        final_result_list.extend(minipage_results)
 
     return {
         "query": query,
         "offset": offset,
         "limit": limit,
-        "total": total_files,
-        "results": results,
+        "total": total_file_count,
+        "results": final_result_list[:limit],
     }
 
 
@@ -1282,7 +1302,7 @@ async def fetch_file_entity(
     if "fileSize" in fields:
         returned_file["fileSize"] = Path(file_local_path).stat().st_size
 
-    log.info("file %s fetch fields %r", file_id, fields)
+    log.debug("file %s fetch fields %r", file_id, fields)
     return returned_file
 
 
@@ -1451,7 +1471,7 @@ async def pools_fetch():
     offset = int(request.args.get("offset", 0))
     limit = int(request.args.get("limit", 15))
     query = query.replace("\\:", ":")
-    print(query)
+    log.debug("query: %r", query)
 
     count_rows = await app.db.execute_fetchall(
         """
