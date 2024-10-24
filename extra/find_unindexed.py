@@ -19,6 +19,7 @@ def main():
     path = Path.home() / "awtf.db"
     db = sqlite3.connect(f"file:{str(path)}?mode=ro", uri=True)
     db.row_factory = sqlite3.Row
+    total = 0
 
     for folder_to_check in sys.argv[1:]:
         folder_to_check = Path(folder_to_check).resolve()
@@ -51,6 +52,8 @@ def main():
         log.info("path: %s", folder_to_check)
 
         log.info("%d unindexed files", len(unindexed_files))
+        total += len(unindexed_files)
+    log.info("total unindexed files: %d", total)
 
 
 if __name__ == "__main__":
