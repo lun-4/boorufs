@@ -474,7 +474,7 @@ async def fetch_file_local_path(file_id: int) -> Optional[str]:
     if not file_local_path_result:
         return None
 
-    path = next(p[0] for p in file_local_path_result if p[0].exists())
+    path = next(p[0] for p in file_local_path_result if Path(p[0]).exists())
     app.file_cache.local_path[file_id] = path
     return path
 
