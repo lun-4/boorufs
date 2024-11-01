@@ -420,7 +420,9 @@ def compile_query(search_query: str) -> CompiledSearch:
                     tags.append(full_match)
 
         else:
-            raise Exception(f"Invalid search query. Unexpected character at {index}")
+            raise Exception(
+                f"Invalid search query ({search_query}). Unexpected character at {index}"
+            )
     return CompiledSearch("".join(final_query), tags)
 
 
@@ -823,7 +825,42 @@ def request_wanted_fields() -> Optional[List[str]]:
 
 
 def request_query_field():
-    return request.args.get("query", "").strip().replace("\\:", ":").replace("\\!", "!")
+    original_query = (
+        request.args.get("query", "").strip().replace("\\:", ":").replace("\\!", "!")
+    )
+    query = []
+    for tag in original_query.split(" "):
+        if "," in tag:
+            scope = None
+            if ":" in tag:
+                scope, tag_rest = tag.split(":")
+            else:
+                tag_rest = tag
+            parts = tag_rest.split(",")
+
+            if scope:
+                for part in parts:
+                    query.append(f"{scope}:{part}")
+            else:
+                query.append(parts)
+        else:
+            query.append(tag)
+
+    def _rewriter(tag):
+        if "rating:unsafe" in tag:
+            return tag.replace(
+                "rating:unsafe", os.environ.get("UNSAFE_TAG", "rating:unsafe")
+            )
+        elif "rating:explicit" in tag:
+            return tag.replace(
+                "rating:explicit", os.environ.get("EXPLICIT_TAG", "rating:explicit")
+            )
+        elif "rating:safe" in tag:
+            return tag.replace("rating:safe", os.environ.get("SAFE_TAG", "rating:safe"))
+        return tag
+
+    query = list(map(_rewriter, query))
+    return " ".join(query)
 
 
 class Timer:
@@ -894,7 +931,9 @@ async def compile_and_execute_query(
             mapped_tag_args,
         )
 
-    log.info("exec main query in %s", main_exectimer)
+    log.info(
+        "exec main query in %s (limit=%r, offset=%r)", main_exectimer, limit, offset
+    )
     return result, mapped_tag_args, tag_rows
 
 
