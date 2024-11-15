@@ -486,7 +486,7 @@ async def transcode_path(file_id, local_path, mimetype):
     target_path = transcodes_folder / f"{file_id}{extension}"
 
     if not target_path.exists():
-        cmdline = f"ffmpeg -y -i {shlex.quote(local_path)} -movflags +empty_moov -movflags +frag_keyframe -c:v copy {shlex.quote(str(target_path))}"
+        cmdline = f"ffmpeg -y -i {shlex.quote(local_path)} -movflags +empty_moov -movflags +frag_keyframe -c copy {shlex.quote(str(target_path))}"
         log.info("transcoding with cmdline %r", cmdline)
         process = await asyncio.create_subprocess_shell(
             cmdline,
