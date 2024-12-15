@@ -347,6 +347,9 @@ class CompiledSearch:
 
 
 def compile_query(search_query: str) -> CompiledSearch:
+    search_query = re.sub(r"(\w),(\w)", r"\1 | \2", search_query)
+    log.debug("compiling: %r", search_query)
+
     forced_query = os.environ.get("AWTFDB_FORCED_QUERY")
     if forced_query:
         if not search_query:
