@@ -1,11 +1,11 @@
 FROM alpine:3.18
 RUN apk update
 RUN apk add curl
-RUN curl -L https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz -O
-RUN tar xvf zig-linux-x86_64-0.11.0.tar.xz
-RUN chmod +x /zig-linux-x86_64-0.11.0/zig
-RUN /zig-linux-x86_64-0.11.0/zig version
+RUN curl -L https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz -O
+RUN tar xvf zig-linux-x86_64-0.13.0.tar.xz
+RUN chmod +x /zig-linux-x86_64-0.13.0/zig
+RUN /zig-linux-x86_64-0.13.0/zig version
 RUN apk add graphicsmagick graphicsmagick-dev
 ADD . /awtfdb
 WORKDIR /awtfdb
-RUN /zig-linux-x86_64-0.11.0/zig build -Doptimize=ReleaseSafe
+RUN /zig-linux-x86_64-0.13.0/zig build -Doptimize=ReleaseSafe

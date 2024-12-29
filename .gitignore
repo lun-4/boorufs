@@ -1,8 +1,11 @@
 *__pycache__*
 zig-*
+.zig-*
+.ccls-cache
 .zigmod
 deps.zig
 extra/env
 
 installation/runit/awtfdb-watcher/supervise
 installation/runit/awtfdb-watcher/log/supervise
+.envrc

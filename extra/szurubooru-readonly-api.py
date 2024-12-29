@@ -1586,12 +1586,16 @@ async def pool_categories():
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.DEBUG if os.environ.get("DEBUG") else logging.INFO
+        level=logging.DEBUG if os.environ.get("DEBUG") else logging.INFO,
     )
     if os.environ.get("EZDEBUG"):
         log.setLevel(logging.DEBUG)
     uvloop.install()
     config = Config()
     config.accesslog = "-"
-    config.bind = ["0.0.0.0:6666"]
+    maybe_port = os.environ.get("PORT")
+    if maybe_port is not None:
+        config.bind = [f"0.0.0.0:{maybe_port}"]
+    else:
+        config.bind = ["0.0.0.0:6666"]
     asyncio.run(serve(app, config))
