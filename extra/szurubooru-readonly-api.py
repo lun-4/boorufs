@@ -1420,6 +1420,8 @@ async def single_post_fetch_around(file_id: str):
         query_ids = [row[0] async for row in tag_rows]
 
     if query_ids:
+        if len(query_ids) > 1000:
+            query_ids = query_ids[:1000]
         try:
             current_file_id_index = query_ids.index(file_id)
         except ValueError:
