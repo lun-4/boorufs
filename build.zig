@@ -69,6 +69,10 @@ pub fn build(b: *std.Build) !void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
+    // TODO make test spit out the path on stdout
+    const build_test_step = b.step("build-test-only", "Only build tests (sidestepping some sort of bug on 0.13)");
+    build_test_step.dependOn(&exe_tests.step);
+
     //if (optimize == .Debug or optimize == .ReleaseSafe) {
 
     if (true) {

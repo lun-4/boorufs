@@ -9,7 +9,7 @@ jobs:
         with:
           version: 0.13.0
       - run: sudo apt install -y libmagic1 libgraphicsmagick-q16-3 libgraphicsmagick1-dev
-      - run: zig build test -freference-trace --verbose --verbose-link --verbose-cc
+      - run: zig build build-test-only -freference-trace --verbose --verbose-link --verbose-cc
       # TODO crosscompile testing: https://github.com/lun-4/awtfdb/issues/1
       # TODO crosscompile testing: https://github.com/lun-4/awtfdb/issues/2
       - run: zig build
