@@ -117,9 +117,9 @@ pub fn build(b: *std.Build) !void {
 
         if (target.result.os.tag == .macos) {
             // macports
-            exe_tests.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
+            single_exe.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
             // homebrew
-            exe_tests.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+            single_exe.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
         }
 
         b.installArtifact(single_exe);
