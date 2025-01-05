@@ -207,65 +207,9 @@ const TagInferrerContext = union(TagInferrer) {
     mime: MimeTagInferrer.RunContext,
 };
 
-pub const magick_c = @cImport({
-    @cInclude("GraphicsMagick/wand/magick_wand.h");
-    @cInclude("GraphicsMagick/wand/magick_wand.h");
-    @cInclude("GraphicsMagick/wand/pixel_wand.h");
-    @cInclude("GraphicsMagick/wand/drawing_wand.h");
-    @cInclude("GraphicsMagick/magick/log.h");
-});
 pub const exif_c = @cImport({
     @cInclude("libexif/exif-data.h");
 });
-
-const GraphicsMagickApi = struct {
-    InitializeMagick: *@TypeOf(magick_c.InitializeMagick),
-    DestroyImage: *@TypeOf(magick_c.DestroyImage),
-    DestroyImageInfo: *@TypeOf(magick_c.DestroyImageInfo),
-    CloneImageInfo: *@TypeOf(magick_c.CloneImageInfo),
-    ReadImage: *@TypeOf(magick_c.ReadImage),
-    GetImageAttribute: *@TypeOf(magick_c.GetImageAttribute),
-    GetExceptionInfo: *@TypeOf(magick_c.GetExceptionInfo),
-    CatchException: *@TypeOf(magick_c.CatchException),
-};
-
-const CachedMagick = union(enum) {
-    not_found: void,
-    found: GraphicsMagickApi,
-};
-
-var cached_graphics_magick: ?CachedMagick = null;
-
-/// Dynamically get an object that represents the GraphicsMagick library
-/// in the system.
-fn getGraphicsMagickApi() ?GraphicsMagickApi {
-    if (cached_graphics_magick) |cached_gm_api| {
-        return switch (cached_gm_api) {
-            .found => |api| api,
-            .not_found => null,
-        };
-    }
-
-    var gm_clib = std.DynLib.open("/usr/lib/libGraphicsMagickWand.so") catch {
-        // TODO anon initialization crashes compiler. https://github.com/ziglang/zig/issues/19966
-        cached_graphics_magick = CachedMagick{ .not_found = {} };
-        return null;
-    };
-    var buf: [256]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator{ .end_index = 0, .buffer = &buf };
-    var alloc = fba.allocator();
-
-    var api: GraphicsMagickApi = undefined;
-    inline for (@typeInfo(GraphicsMagickApi).Struct.fields) |field_decl| {
-        const name_cstr = alloc.dupeZ(u8, field_decl.name) catch unreachable;
-        defer fba.reset();
-
-        @field(api, field_decl.name) = gm_clib.lookup(field_decl.type, name_cstr).?;
-    }
-    // TODO anon initialization crashes compiler. https://github.com/ziglang/zig/issues/19966
-    cached_graphics_magick = CachedMagick{ .found = api };
-    return api;
-}
 
 extern "c" fn strerror(errcode: c_int) [*:0]const u8;
 
@@ -291,7 +235,6 @@ const RegexTagInferrer = struct {
         config: Config,
         regex_cstr: [:0]const u8,
         regex: libpcre.Regex,
-        gm_api: ?GraphicsMagickApi = null,
     };
 
     pub fn consumeArguments(args_it: *std.process.ArgIterator) !TagInferrerConfig {
@@ -348,13 +291,11 @@ const RegexTagInferrer = struct {
     pub fn init(config: TagInferrerConfig, allocator: std.mem.Allocator) !RunContext {
         const regex_config = config.config.regex;
         const regex_cstr = try allocator.dupeZ(u8, regex_config.text.?);
-        const gm_api = if (regex_config.use_exif) getGraphicsMagickApi().? else null;
         return RunContext{
             .allocator = allocator,
             .config = regex_config,
             .regex_cstr = regex_cstr,
             .regex = try libpcre.Regex.compile(regex_cstr, .{}),
-            .gm_api = gm_api,
         };
     }
 
@@ -484,8 +425,6 @@ test "regex tag inferrer" {
 }
 
 test "regex tag inferrer with exif" {
-    if (getGraphicsMagickApi() == null) return error.SkipZigTest;
-
     var ctx = try manage_main.makeTestContext();
     defer ctx.deinit();
 

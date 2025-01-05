@@ -14,12 +14,6 @@ const EXECUTABLES = .{
     .{ "amv", "src/mv_main.zig" },
 };
 
-fn addGraphicsMagick(thing: anytype) void {
-    thing.linkLibC();
-    thing.addIncludePath(.{ .cwd_relative = "/usr/include" });
-    thing.addIncludePath(.{ .cwd_relative = "/usr/include/GraphicsMagick" });
-}
-
 pub fn build(b: *std.Build) !void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
@@ -64,8 +58,6 @@ pub fn build(b: *std.Build) !void {
 
     const run_unit_tests = b.addRunArtifact(exe_tests);
 
-    addGraphicsMagick(exe_tests);
-
     for (mod_deps) |dep| {
         exe_tests.root_module.addImport(dep.name, dep.mod);
     }
@@ -98,7 +90,6 @@ pub fn build(b: *std.Build) !void {
             single_exe.linkLibrary(lib);
         }
 
-        addGraphicsMagick(single_exe);
         b.installArtifact(single_exe);
 
         const hardlink_install = try b.allocator.create(CustomHardLinkStep);
@@ -133,7 +124,6 @@ pub fn build(b: *std.Build) !void {
     //            );
     //
     //            b.installArtifact(tool_exe);
-    //            addGraphicsMagick(tool_exe);
     //            comptime addAllTo(mod_deps, static_deps, tool_exe);
     //        }
     //    }
