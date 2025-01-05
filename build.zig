@@ -14,12 +14,6 @@ const EXECUTABLES = .{
     .{ "amv", "src/mv_main.zig" },
 };
 
-fn addGraphicsMagick(thing: anytype) void {
-    thing.linkLibC();
-    thing.addIncludePath(.{ .cwd_relative = "/usr/include" });
-    thing.addIncludePath(.{ .cwd_relative = "/usr/include/GraphicsMagick" });
-}
-
 pub fn build(b: *std.Build) !void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
@@ -37,6 +31,7 @@ pub fn build(b: *std.Build) !void {
     const expiring_hash_map_pkg = b.dependency("expiring_hash_map", .{ .optimize = optimize, .target = target });
     const tunez_pkg = b.dependency("tunez", .{ .optimize = optimize, .target = target });
     const ulid_pkg = b.dependency("zig-ulid", .{ .optimize = optimize, .target = target });
+    const libexif_pkg = b.dependency("libexif", .{ .optimize = optimize, .target = target });
     const Mod = struct { name: []const u8, mod: *std.Build.Module };
 
     const mod_deps = &[_]Mod{
@@ -48,8 +43,24 @@ pub fn build(b: *std.Build) !void {
         .{ .name = "ulid", .mod = ulid_pkg.module("zig-ulid") },
     };
 
+    const exif_artifact = libexif_pkg.artifact("exif");
+    if (target.result.os.tag == .macos) {
+        // i really dislike macos
+        exif_artifact.linkLibC();
+        exif_artifact.linkSystemLibrary("intl");
+
+        // macports
+        exif_artifact.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
+        exif_artifact.addIncludePath(.{ .cwd_relative = "/opt/local/include" });
+
+        // homebrew
+        exif_artifact.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+        exif_artifact.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
+    }
+
     const static_deps = &[_]*std.Build.Step.Compile{
         sqlite_pkg.artifact("sqlite"),
+        exif_artifact,
     };
 
     const exe_tests = b.addTest(
@@ -60,9 +71,13 @@ pub fn build(b: *std.Build) !void {
         },
     );
 
+    if (target.result.os.tag == .macos) {
+        // macports
+        exe_tests.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
+        // homebrew
+        exe_tests.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+    }
     const run_unit_tests = b.addRunArtifact(exe_tests);
-
-    addGraphicsMagick(exe_tests);
 
     for (mod_deps) |dep| {
         exe_tests.root_module.addImport(dep.name, dep.mod);
@@ -74,6 +89,10 @@ pub fn build(b: *std.Build) !void {
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
+
+    // TODO make test spit out the path on stdout
+    const build_test_step = b.step("build-test-only", "Only build tests (sidestepping some sort of bug on 0.13)");
+    build_test_step.dependOn(&exe_tests.step);
 
     //if (optimize == .Debug or optimize == .ReleaseSafe) {
 
@@ -96,7 +115,13 @@ pub fn build(b: *std.Build) !void {
             single_exe.linkLibrary(lib);
         }
 
-        addGraphicsMagick(single_exe);
+        if (target.result.os.tag == .macos) {
+            // macports
+            single_exe.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
+            // homebrew
+            single_exe.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+        }
+
         b.installArtifact(single_exe);
 
         const hardlink_install = try b.allocator.create(CustomHardLinkStep);
@@ -131,7 +156,6 @@ pub fn build(b: *std.Build) !void {
     //            );
     //
     //            b.installArtifact(tool_exe);
-    //            addGraphicsMagick(tool_exe);
     //            comptime addAllTo(mod_deps, static_deps, tool_exe);
     //        }
     //    }

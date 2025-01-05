@@ -272,8 +272,13 @@ pub fn main() anyerror!void {
 
         // configure signal handler that's going to push data to the selfpipe
         var mask = std.posix.empty_sigset;
-        std.os.linux.sigaddset(&mask, std.posix.SIG.TERM);
-        std.os.linux.sigaddset(&mask, std.posix.SIG.INT);
+        if (@import("builtin").os.tag == .macos) {
+            std.c.sigaddset(&mask, std.posix.SIG.TERM);
+            std.c.sigaddset(&mask, std.posix.SIG.INT);
+        } else {
+            std.os.linux.sigaddset(&mask, std.posix.SIG.TERM);
+            std.os.linux.sigaddset(&mask, std.posix.SIG.INT);
+        }
         var sa = std.posix.Sigaction{
             .handler = .{ .sigaction = signal_handler },
             .mask = mask,

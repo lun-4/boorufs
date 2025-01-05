@@ -634,7 +634,7 @@ const SearchAction = struct {
 
             const full_tag_core = related_tags.items[0].core;
             if (self.config.show_hashes) {
-                try stdout.print(" {s}", .{fake_hash.toRealHash()});
+                try stdout.print("{s}", .{fake_hash.toRealHash()});
             } else {
                 try stdout.print("{s}", .{full_tag_core.id});
             }

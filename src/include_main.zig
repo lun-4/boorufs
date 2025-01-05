@@ -207,62 +207,11 @@ const TagInferrerContext = union(TagInferrer) {
     mime: MimeTagInferrer.RunContext,
 };
 
-pub const magick_c = @cImport({
-    @cInclude("GraphicsMagick/wand/magick_wand.h");
-    @cInclude("GraphicsMagick/wand/magick_wand.h");
-    @cInclude("GraphicsMagick/wand/pixel_wand.h");
-    @cInclude("GraphicsMagick/wand/drawing_wand.h");
-    @cInclude("GraphicsMagick/magick/log.h");
+pub const exif_c = @cImport({
+    @cInclude("libexif/exif-data.h");
 });
 
-const GraphicsMagickApi = struct {
-    InitializeMagick: *@TypeOf(magick_c.InitializeMagick),
-    DestroyImage: *@TypeOf(magick_c.DestroyImage),
-    DestroyImageInfo: *@TypeOf(magick_c.DestroyImageInfo),
-    CloneImageInfo: *@TypeOf(magick_c.CloneImageInfo),
-    ReadImage: *@TypeOf(magick_c.ReadImage),
-    GetImageAttribute: *@TypeOf(magick_c.GetImageAttribute),
-    GetExceptionInfo: *@TypeOf(magick_c.GetExceptionInfo),
-    CatchException: *@TypeOf(magick_c.CatchException),
-};
-
-const CachedMagick = union(enum) {
-    not_found: void,
-    found: GraphicsMagickApi,
-};
-
-var cached_graphics_magick: ?CachedMagick = null;
-
-/// Dynamically get an object that represents the GraphicsMagick library
-/// in the system.
-fn getGraphicsMagickApi() ?GraphicsMagickApi {
-    if (cached_graphics_magick) |cached_gm_api| {
-        return switch (cached_gm_api) {
-            .found => |api| api,
-            .not_found => null,
-        };
-    }
-
-    var gm_clib = std.DynLib.open("/usr/lib/libGraphicsMagickWand.so") catch {
-        // TODO anon initialization crashes compiler. https://github.com/ziglang/zig/issues/19966
-        cached_graphics_magick = CachedMagick{ .not_found = {} };
-        return null;
-    };
-    var buf: [256]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator{ .end_index = 0, .buffer = &buf };
-    var alloc = fba.allocator();
-
-    var api: GraphicsMagickApi = undefined;
-    inline for (@typeInfo(GraphicsMagickApi).Struct.fields) |field_decl| {
-        const name_cstr = alloc.dupeZ(u8, field_decl.name) catch unreachable;
-        defer fba.reset();
-
-        @field(api, field_decl.name) = gm_clib.lookup(field_decl.type, name_cstr).?;
-    }
-    // TODO anon initialization crashes compiler. https://github.com/ziglang/zig/issues/19966
-    cached_graphics_magick = CachedMagick{ .found = api };
-    return api;
-}
+extern "c" fn strerror(errcode: c_int) [*:0]const u8;
 
 const RegexTagInferrer = struct {
     pub const Config = struct {
@@ -286,7 +235,6 @@ const RegexTagInferrer = struct {
         config: Config,
         regex_cstr: [:0]const u8,
         regex: libpcre.Regex,
-        gm_api: ?GraphicsMagickApi = null,
     };
 
     pub fn consumeArguments(args_it: *std.process.ArgIterator) !TagInferrerConfig {
@@ -343,13 +291,11 @@ const RegexTagInferrer = struct {
     pub fn init(config: TagInferrerConfig, allocator: std.mem.Allocator) !RunContext {
         const regex_config = config.config.regex;
         const regex_cstr = try allocator.dupeZ(u8, regex_config.text.?);
-        const gm_api = if (regex_config.use_exif) getGraphicsMagickApi().? else null;
         return RunContext{
             .allocator = allocator,
             .config = regex_config,
             .regex_cstr = regex_cstr,
             .regex = try libpcre.Regex.compile(regex_cstr, .{}),
-            .gm_api = gm_api,
         };
     }
 
@@ -370,33 +316,35 @@ const RegexTagInferrer = struct {
             if (self.config.use_full_path) file.local_path else std.fs.path.basename(file.local_path),
         );
 
-        if (self.gm_api) |gm_api| {
-            const info = (gm_api.CloneImageInfo(0)).?;
-            defer gm_api.DestroyImageInfo(info);
+        if (self.config.use_exif) {
+            const fd = try std.fs.openFileAbsolute(file.local_path, .{ .mode = .read_only });
+            defer fd.close();
 
-            var buf: [std.posix.PATH_MAX]u8 = undefined;
-            var fba = std.heap.FixedBufferAllocator{ .end_index = 0, .buffer = &buf };
-            var alloc = fba.allocator();
-            const path_cstr = alloc.dupeZ(u8, file.local_path) catch unreachable;
+            const data = try fd.readToEndAlloc(self.allocator, std.math.maxInt(usize));
+            defer self.allocator.free(data);
 
-            gm_api.InitializeMagick(null);
-            std.mem.copyForwards(u8, &info.*.filename, path_cstr);
-            var exception: magick_c.ExceptionInfo = undefined;
-            gm_api.GetExceptionInfo(&exception);
-            const image = gm_api.ReadImage(info, &exception) orelse {
-                gm_api.CatchException(&exception);
-                return error.GmApiException;
+            const ed = exif_c.exif_data_new_from_data(data.ptr, @intCast(data.len));
+            defer exif_c.exif_data_free(ed);
+            if (ed == null) {
+                const errstr = strerror(std.c._errno().*);
+                std.debug.print("EXIF: error reading data ({s}): errno = {s}\n", .{ file.local_path, errstr });
+                return error.NoExif;
+            }
+
+            const PARAMS_TO_GET = .{
+                exif_c.EXIF_TAG_USER_COMMENT,
+                exif_c.EXIF_TAG_IMAGE_DESCRIPTION,
+                exif_c.EXIF_TAG_SOFTWARE,
             };
-            defer gm_api.DestroyImage(image);
 
-            const COOL_PARAMS = .{ "parameters", "comment" };
-
-            inline for (COOL_PARAMS) |param| {
-                const maybe_attr = gm_api.GetImageAttribute(image, param);
-                if (maybe_attr) |attr| {
-                    logger.debug("image attr key={s} value={?s}", .{ param, attr.*.value });
+            inline for (PARAMS_TO_GET) |param| {
+                const maybe_entry = exif_c.exif_content_get_entry(ed.*.ifd[exif_c.EXIF_IFD_EXIF], param);
+                if (maybe_entry) |entry| {
+                    var comment_buf: [8192]u8 = undefined;
+                    _ = exif_c.exif_entry_get_value(entry, &comment_buf, comment_buf.len);
+                    std.debug.print("fetched data from exif: {s}\n", .{comment_buf});
                     _ = try input_text_writer.write(" ");
-                    _ = try input_text_writer.write(std.mem.span(attr.*.value.?));
+                    _ = try input_text_writer.write(std.mem.span(@as([*c]u8, &comment_buf))); // why do i need [*c]u8 to compile what
                 }
             }
         }
@@ -477,15 +425,13 @@ test "regex tag inferrer" {
 }
 
 test "regex tag inferrer with exif" {
-    if (getGraphicsMagickApi() == null) return error.SkipZigTest;
-
     var ctx = try manage_main.makeTestContext();
     defer ctx.deinit();
 
     // setup regex inferrer
 
     const regex_config = RegexTagInferrer.Config{
-        .text = "TEST IMAGE!",
+        .text = "Exif comment test!",
         .tag_on_match = "real_test_image",
         .use_exif = true,
     };
