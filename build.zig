@@ -48,8 +48,14 @@ pub fn build(b: *std.Build) !void {
         // i really dislike macos
         exif_artifact.linkLibC();
         exif_artifact.linkSystemLibrary("intl");
+
+        // macports
         exif_artifact.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
         exif_artifact.addIncludePath(.{ .cwd_relative = "/opt/local/include" });
+
+        // homebrew
+        exif_artifact.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+        exif_artifact.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
     }
 
     const static_deps = &[_]*std.Build.Step.Compile{
@@ -66,7 +72,10 @@ pub fn build(b: *std.Build) !void {
     );
 
     if (target.result.os.tag == .macos) {
+        // macports
         exe_tests.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
+        // homebrew
+        exe_tests.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
     }
     const run_unit_tests = b.addRunArtifact(exe_tests);
 
@@ -107,7 +116,10 @@ pub fn build(b: *std.Build) !void {
         }
 
         if (target.result.os.tag == .macos) {
-            single_exe.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
+            // macports
+            exe_tests.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
+            // homebrew
+            exe_tests.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
         }
 
         b.installArtifact(single_exe);
