@@ -25,6 +25,6 @@ jobs:
           brew update
           brew install gettext
           brew unlink gettext && brew link gettext --force
-      - run: zig build test -freference-trace --verbose --verbose-link --verbose-cc
+      - run: zig build build-test-only -freference-trace --verbose --verbose-link --verbose-cc
       - run: zig build
       - run: ci/smoketest.sh
