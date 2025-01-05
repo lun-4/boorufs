@@ -26,6 +26,10 @@
             .url = "https://github.com/lun-4/zig-ulid/archive/6b1146ac2aa07e28468600753749b2b35b789332.tar.gz",
             .hash = "1220f47d7fe37a226bf89f1df08d2fd07d09b5eb0ae81694d8c3fd1d0d827e0c7697",
         },
+        .libexif = .{
+            .url = "git+https://github.com/lun-4/libexif-zig#11716ff9b15de4394a67060afa416baee030663b",
+            .hash = "12204d79789378f6c3537c53beaaedf9ad77dcc24997a0cbea1e09b87d679c70ac0c",
+        },
     },
     .minimum_zig_version = "0.12.0",
     .paths = .{

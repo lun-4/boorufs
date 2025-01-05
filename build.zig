@@ -37,6 +37,7 @@ pub fn build(b: *std.Build) !void {
     const expiring_hash_map_pkg = b.dependency("expiring_hash_map", .{ .optimize = optimize, .target = target });
     const tunez_pkg = b.dependency("tunez", .{ .optimize = optimize, .target = target });
     const ulid_pkg = b.dependency("zig-ulid", .{ .optimize = optimize, .target = target });
+    const libexif_pkg = b.dependency("libexif", .{ .optimize = optimize, .target = target });
     const Mod = struct { name: []const u8, mod: *std.Build.Module };
 
     const mod_deps = &[_]Mod{
@@ -50,6 +51,7 @@ pub fn build(b: *std.Build) !void {
 
     const static_deps = &[_]*std.Build.Step.Compile{
         sqlite_pkg.artifact("sqlite"),
+        libexif_pkg.artifact("exif"),
     };
 
     const exe_tests = b.addTest(
