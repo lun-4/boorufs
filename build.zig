@@ -43,9 +43,18 @@ pub fn build(b: *std.Build) !void {
         .{ .name = "ulid", .mod = ulid_pkg.module("zig-ulid") },
     };
 
+    const exif_artifact = libexif_pkg.artifact("exif");
+    if (target.result.os.tag == .macos) {
+        // i really dislike macos
+        exif_artifact.linkLibC();
+        exif_artifact.linkSystemLibrary("intl");
+        exif_artifact.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
+        exif_artifact.addIncludePath(.{ .cwd_relative = "/opt/local/include" });
+    }
+
     const static_deps = &[_]*std.Build.Step.Compile{
         sqlite_pkg.artifact("sqlite"),
-        libexif_pkg.artifact("exif"),
+        exif_artifact,
     };
 
     const exe_tests = b.addTest(
@@ -56,6 +65,9 @@ pub fn build(b: *std.Build) !void {
         },
     );
 
+    if (target.result.os.tag == .macos) {
+        exe_tests.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
+    }
     const run_unit_tests = b.addRunArtifact(exe_tests);
 
     for (mod_deps) |dep| {
@@ -92,6 +104,10 @@ pub fn build(b: *std.Build) !void {
 
         for (static_deps) |lib| {
             single_exe.linkLibrary(lib);
+        }
+
+        if (target.result.os.tag == .macos) {
+            single_exe.addLibraryPath(.{ .cwd_relative = "/opt/local/lib" });
         }
 
         b.installArtifact(single_exe);
