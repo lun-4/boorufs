@@ -980,6 +980,7 @@ pub const Context = struct {
                 if (!(is_at_start and is_at_end)) {
                     options.setError(.{ .invalid_tag_name = .{
                         .full_regex = self.library_config.tag_name_regex_string.?,
+                        .text = text,
                         .matched_result = text[capture.start..capture.end],
                     } });
                     return error.InvalidTagName;
@@ -987,6 +988,7 @@ pub const Context = struct {
             } else {
                 options.setError(.{ .invalid_tag_name = .{
                     .full_regex = self.library_config.tag_name_regex_string.?,
+                    .text = text,
                     .matched_result = null,
                 } });
                 return error.InvalidTagName;
@@ -998,6 +1000,7 @@ pub const Context = struct {
         none: void,
         invalid_tag_name: struct {
             full_regex: []const u8,
+            text: []const u8,
             matched_result: ?[]const u8 = null,
         },
 
@@ -1010,18 +1013,11 @@ pub const Context = struct {
             _ = f;
             _ = options;
             return switch (self) {
-                .invalid_tag_name => |data| if (data.matched_result) |matched|
-                    std.fmt.format(
-                        writer,
-                        "regex {s} does not match to given tag name, only '{?s}'",
-                        .{ data.full_regex, matched },
-                    )
-                else
-                    std.fmt.format(
-                        writer,
-                        "regex {s} does not match to given tag name",
-                        .{data.full_regex},
-                    ),
+                .invalid_tag_name => |data| std.fmt.format(
+                    writer,
+                    "regex {s} does not match to given tag name, got '{s}', matched {?s}",
+                    .{ data.full_regex, data.text, data.matched_result },
+                ),
                 .none => {},
             };
         }
