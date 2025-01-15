@@ -21,6 +21,8 @@ def main():
     db.row_factory = sqlite3.Row
     total = 0
 
+    all_unindexed = []
+
     for folder_to_check in sys.argv[1:]:
         folder_to_check = Path(folder_to_check).resolve()
         files_in_folder = set(f for f in folder_to_check.glob("**/*") if f.is_file())
@@ -53,7 +55,10 @@ def main():
 
         log.info("%d unindexed files", len(unindexed_files))
         total += len(unindexed_files)
+        all_unindexed.extend(unindexed_files)
     log.info("total unindexed files: %d", total)
+    for p in all_unindexed:
+        log.info("%s", p)
 
 
 if __name__ == "__main__":
